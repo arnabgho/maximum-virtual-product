@@ -1,0 +1,108 @@
+export type Phase = "research" | "plan";
+
+export type ArtifactType =
+  | "markdown"
+  | "mermaid"
+  | "image"
+  | "research_finding"
+  | "competitor"
+  | "plan_component";
+
+export type ConnectionType = "related" | "competes" | "depends" | "references";
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  phase: Phase;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Artifact {
+  id: string;
+  project_id: string;
+  phase: Phase;
+  type: ArtifactType;
+  title: string;
+  content: string;
+  summary: string;
+  source_url: string | null;
+  importance: number;
+  group_id: string | null;
+  position_x: number;
+  position_y: number;
+  metadata: Record<string, unknown>;
+  references: string[];
+  created_at: string;
+}
+
+export interface ArtifactConnection {
+  id: string;
+  project_id: string;
+  from_artifact_id: string;
+  to_artifact_id: string;
+  label: string;
+  connection_type: ConnectionType;
+}
+
+export interface Group {
+  id: string;
+  project_id: string;
+  phase: Phase;
+  title: string;
+  color: string;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+}
+
+export interface Feedback {
+  id: string;
+  artifact_id: string;
+  project_id: string;
+  source: "human" | "ai";
+  author: string;
+  comment: string;
+  status: "pending" | "addressed";
+  created_at: string;
+}
+
+// WebSocket event types
+export type WSEventType =
+  | "agent_started"
+  | "agent_thinking"
+  | "artifact_created"
+  | "connection_created"
+  | "group_created"
+  | "agent_complete"
+  | "research_complete"
+  | "plan_artifact_created"
+  | "plan_complete"
+  | "error";
+
+export interface WSEvent {
+  type: WSEventType;
+  data: Record<string, unknown>;
+}
+
+export interface AgentStatus {
+  agent_id: string;
+  focus_area: string;
+  status: "running" | "complete" | "error";
+  artifact_count: number;
+  thinking?: string;
+}
+
+export interface ProjectState {
+  project: Project | null;
+  artifacts: Artifact[];
+  connections: ArtifactConnection[];
+  groups: Group[];
+  feedback: Feedback[];
+  agents: AgentStatus[];
+  selectedArtifactId: string | null;
+  isResearching: boolean;
+  isPlanning: boolean;
+}

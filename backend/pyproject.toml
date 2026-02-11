@@ -1,0 +1,16 @@
+[project]
+name = "mvp-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "anthropic>=0.52",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "httpx>=0.28",
+    "readability-lxml>=0.8",
+    "supabase>=2.0",
+    "python-multipart>=0.0.20",
+    "python-dotenv>=1.1",
+]

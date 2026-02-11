@@ -1,0 +1,110 @@
+"""Claude-powered research sub-agent that searches, fetches, and summarizes."""
+
+import asyncio
+import uuid
+from app.agents.base import BaseAgent
+from app.services import web_search, web_fetch, claude_service
+from app.ws.manager import WSManager
+from app.models.schema import Artifact, generate_artifact_id
+
+
+class ResearchAgent(BaseAgent):
+    def __init__(
+        self,
+        angle: dict,
+        project_id: str,
+        ws_manager: WSManager,
+    ):
+        agent_id = f"agent_{uuid.uuid4().hex[:8]}"
+        super().__init__(agent_id, project_id)
+        self.angle = angle
+        self.ws = ws_manager
+        self.sub_query = angle.get("sub_query", "")
+        self.focus = angle.get("focus", "")
+        self.angle_name = angle.get("angle", "Research")
+
+    async def execute(self) -> list[Artifact]:
+        """Execute research: search -> fetch -> summarize -> return artifacts."""
+        # Notify: agent started
+        await self.ws.send_event(self.project_id, "agent_started", {
+            "agent_id": self.agent_id,
+            "focus_area": self.angle_name,
+        })
+
+        try:
+            # Step 1: Web search
+            await self.ws.send_event(self.project_id, "agent_thinking", {
+                "agent_id": self.agent_id,
+                "text": f"Searching: {self.sub_query}",
+            })
+            search_results = await web_search.search(self.sub_query, count=5)
+
+            # Step 2: Fetch top pages in parallel
+            await self.ws.send_event(self.project_id, "agent_thinking", {
+                "agent_id": self.agent_id,
+                "text": f"Fetching {len(search_results)} pages...",
+            })
+
+            fetch_tasks = []
+            for result in search_results[:3]:  # Fetch top 3
+                fetch_tasks.append(self._safe_fetch(result.url))
+
+            page_contents = await asyncio.gather(*fetch_tasks)
+
+            # Step 3: Claude summarizes findings
+            await self.ws.send_event(self.project_id, "agent_thinking", {
+                "agent_id": self.agent_id,
+                "text": "Analyzing findings...",
+            })
+
+            sr_dicts = [r.model_dump() for r in search_results[:3]]
+            pc_dicts = [p if isinstance(p, dict) else p.model_dump() for p in page_contents]
+
+            findings = await claude_service.summarize_findings(
+                self.sub_query, self.angle_name, sr_dicts, pc_dicts
+            )
+
+            # Step 4: Create artifact objects
+            artifacts = []
+            for finding in findings:
+                artifact = Artifact(
+                    id=generate_artifact_id(),
+                    project_id=self.project_id,
+                    phase="research",
+                    type=finding.get("type", "research_finding"),
+                    title=finding.get("title", "Finding"),
+                    content=finding.get("content", ""),
+                    summary=finding.get("summary", ""),
+                    source_url=finding.get("source_url"),
+                    importance=finding.get("importance", 50),
+                    metadata={"angle": self.angle_name, "agent_id": self.agent_id},
+                )
+                artifacts.append(artifact)
+
+                # Stream each artifact to the frontend
+                await self.ws.send_event(self.project_id, "artifact_created", {
+                    "artifact": artifact.model_dump(),
+                })
+
+            # Notify: agent complete
+            await self.ws.send_event(self.project_id, "agent_complete", {
+                "agent_id": self.agent_id,
+                "artifact_count": len(artifacts),
+            })
+
+            return artifacts
+
+        except Exception as e:
+            await self.ws.send_event(self.project_id, "error", {
+                "message": f"Agent {self.angle_name} failed: {str(e)}",
+                "agent_id": self.agent_id,
+            })
+            return []
+
+    async def _safe_fetch(self, url: str) -> dict:
+        """Fetch a URL with error handling."""
+        try:
+            result = await web_fetch.fetch_and_parse(url)
+            return result.model_dump()
+        except Exception:
+            return {"url": url, "content": "[Failed to fetch]", "title": "", "status": 0, "truncated": False}

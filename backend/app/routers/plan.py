@@ -1,0 +1,27 @@
+import asyncio
+
+from fastapi import APIRouter, HTTPException
+
+from app.db.supabase import get_db
+from app.models.schema import PlanQuery
+from app.services.plan_service import run_plan
+from app.ws.manager import get_ws_manager
+
+router = APIRouter(prefix="/api/projects", tags=["plan"])
+
+
+@router.post("/{project_id}/plan")
+async def start_plan(project_id: str, data: PlanQuery):
+    db = get_db()
+    project = await db.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    ws_manager = get_ws_manager()
+
+    # Run plan in background task
+    asyncio.create_task(
+        run_plan(project_id, data.description, data.reference_artifact_ids, ws_manager)
+    )
+
+    return {"status": "started", "description": data.description}

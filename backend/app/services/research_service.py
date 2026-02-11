@@ -1,0 +1,177 @@
+"""Orchestrates parallel research sub-agents."""
+
+import asyncio
+from app.models.schema import (
+    Artifact,
+    ArtifactConnection,
+    Group,
+    generate_artifact_id,
+)
+from app.services import claude_service
+from app.agents.research_agent import ResearchAgent
+from app.ws.manager import WSManager
+from app.db.supabase import get_db
+
+
+GRID_COLS = 4
+CARD_WIDTH = 320
+CARD_HEIGHT = 240
+GAP = 40
+
+
+def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[Artifact], list[Group]]:
+    """Compute grid positions for artifacts, grouped."""
+    group_objects = []
+    assigned_artifacts = set()
+
+    y_offset = 0
+    for g_data in groups:
+        g_artifact_ids = g_data.get("artifact_ids", [])
+        group_artifacts = [a for a in artifacts if a.id in g_artifact_ids]
+
+        if not group_artifacts:
+            continue
+
+        # Position artifacts within group
+        for i, art in enumerate(group_artifacts):
+            col = i % GRID_COLS
+            row = i // GRID_COLS
+            art.position_x = col * (CARD_WIDTH + GAP) + GAP
+            art.position_y = y_offset + row * (CARD_HEIGHT + GAP) + 60  # 60 for group header
+            assigned_artifacts.add(art.id)
+
+        rows_in_group = (len(group_artifacts) + GRID_COLS - 1) // GRID_COLS
+        group_width = GRID_COLS * (CARD_WIDTH + GAP) + GAP
+        group_height = rows_in_group * (CARD_HEIGHT + GAP) + 60 + GAP
+
+        group = Group(
+            project_id=artifacts[0].project_id if artifacts else "",
+            phase="research",
+            title=g_data.get("title", "Group"),
+            color=g_data.get("color", "#3b82f6"),
+            position_x=0,
+            position_y=y_offset,
+            width=group_width,
+            height=group_height,
+        )
+        group_objects.append(group)
+
+        # Assign group_id to artifacts
+        for art in group_artifacts:
+            art.group_id = group.id
+
+        y_offset += group_height + GAP
+
+    # Position ungrouped artifacts
+    ungrouped = [a for a in artifacts if a.id not in assigned_artifacts]
+    for i, art in enumerate(ungrouped):
+        col = i % GRID_COLS
+        row = i // GRID_COLS
+        art.position_x = col * (CARD_WIDTH + GAP) + GAP
+        art.position_y = y_offset + row * (CARD_HEIGHT + GAP) + GAP
+
+    return artifacts, group_objects
+
+
+async def run_research(project_id: str, query: str, ws_manager: WSManager):
+    """Run the full research pipeline: plan -> parallel agents -> synthesize."""
+    db = get_db()
+
+    # Step 1: Claude plans research angles
+    angles = await claude_service.plan_research(query)
+
+    # Step 2: Run sub-agents in parallel
+    tasks = []
+    for angle in angles:
+        agent = ResearchAgent(angle, project_id, ws_manager)
+        tasks.append(agent.execute())
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Collect all artifacts from successful agents
+    all_artifacts: list[Artifact] = []
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+        all_artifacts.extend(result)
+
+    if not all_artifacts:
+        await ws_manager.send_event(project_id, "research_complete", {
+            "summary": "No findings were generated.",
+            "total_artifacts": 0,
+        })
+        return
+
+    # Step 3: Claude synthesizes findings into groups + connections
+    artifact_dicts = [a.model_dump() for a in all_artifacts]
+    synthesis = await claude_service.synthesize_research(query, artifact_dicts)
+
+    # Compute layout
+    all_artifacts, group_objects = compute_layout(all_artifacts, synthesis.get("groups", []))
+
+    # Create connections
+    connections = []
+    for conn_data in synthesis.get("connections", []):
+        # Verify both artifacts exist
+        artifact_ids = {a.id for a in all_artifacts}
+        from_id = conn_data.get("from_id", "")
+        to_id = conn_data.get("to_id", "")
+        if from_id in artifact_ids and to_id in artifact_ids:
+            conn = ArtifactConnection(
+                project_id=project_id,
+                from_artifact_id=from_id,
+                to_artifact_id=to_id,
+                label=conn_data.get("label", ""),
+                connection_type=conn_data.get("connection_type", "related"),
+            )
+            connections.append(conn)
+
+    # Create summary artifact
+    summary_artifact = Artifact(
+        id=generate_artifact_id(),
+        project_id=project_id,
+        phase="research",
+        type="markdown",
+        title="Research Summary",
+        content=synthesis.get("summary", ""),
+        summary=f"Summary of research on: {query}",
+        importance=95,
+        position_x=0,
+        position_y=-200,  # Above everything
+    )
+    all_artifacts.insert(0, summary_artifact)
+
+    # Step 4: Save everything to Supabase
+    try:
+        await db.save_artifacts(all_artifacts)
+        await db.save_connections(connections)
+        await db.save_groups(group_objects)
+    except Exception as e:
+        await ws_manager.send_event(project_id, "error", {
+            "message": f"Failed to save research: {str(e)}",
+        })
+
+    # Broadcast groups and connections
+    for group in group_objects:
+        await ws_manager.send_event(project_id, "group_created", {
+            "group": group.model_dump(),
+        })
+
+    for conn in connections:
+        await ws_manager.send_event(project_id, "connection_created", {
+            "from_id": conn.from_artifact_id,
+            "to_id": conn.to_artifact_id,
+            "label": conn.label,
+            "connection_type": conn.connection_type,
+        })
+
+    # Broadcast summary artifact
+    await ws_manager.send_event(project_id, "artifact_created", {
+        "artifact": summary_artifact.model_dump(),
+    })
+
+    # Final event
+    await ws_manager.send_event(project_id, "research_complete", {
+        "summary": synthesis.get("summary", ""),
+        "total_artifacts": len(all_artifacts),
+    })
