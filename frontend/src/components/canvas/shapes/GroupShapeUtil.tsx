@@ -1,26 +1,23 @@
 import {
   ShapeUtil,
   HTMLContainer,
-  TLBaseShape,
   Rectangle2d,
-  TLOnResizeHandler,
+  T,
   resizeBox,
 } from "tldraw";
 
-export type GroupFrameShape = TLBaseShape<
-  "group_frame",
-  {
-    w: number;
-    h: number;
-    title: string;
-    color: string;
-  }
->;
-
-export class GroupShapeUtil extends ShapeUtil<GroupFrameShape> {
+/** @public */
+export class GroupShapeUtil extends ShapeUtil<any> {
   static override type = "group_frame" as const;
 
-  getDefaultProps(): GroupFrameShape["props"] {
+  static override props = {
+    w: T.number,
+    h: T.number,
+    title: T.string,
+    color: T.string,
+  };
+
+  getDefaultProps() {
     return {
       w: 800,
       h: 600,
@@ -29,7 +26,7 @@ export class GroupShapeUtil extends ShapeUtil<GroupFrameShape> {
     };
   }
 
-  getGeometry(shape: GroupFrameShape) {
+  getGeometry(shape: any) {
     return new Rectangle2d({
       width: shape.props.w,
       height: shape.props.h,
@@ -37,7 +34,11 @@ export class GroupShapeUtil extends ShapeUtil<GroupFrameShape> {
     });
   }
 
-  component(shape: GroupFrameShape) {
+  override onResize(shape: any, info: any) {
+    return resizeBox(shape, info);
+  }
+
+  component(shape: any) {
     const { w, h, title, color } = shape.props;
 
     return (
@@ -80,7 +81,7 @@ export class GroupShapeUtil extends ShapeUtil<GroupFrameShape> {
     );
   }
 
-  indicator(shape: GroupFrameShape) {
+  indicator(shape: any) {
     return (
       <rect
         width={shape.props.w}
@@ -90,8 +91,4 @@ export class GroupShapeUtil extends ShapeUtil<GroupFrameShape> {
       />
     );
   }
-
-  override onResize: TLOnResizeHandler<GroupFrameShape> = (shape, info) => {
-    return resizeBox(shape, info);
-  };
 }

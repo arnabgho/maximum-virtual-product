@@ -20,29 +20,29 @@ export function upsertArtifactShape(
     artifactId: artifact.id,
     title: artifact.title,
     summary: artifact.summary,
-    type: artifact.type,
-    sourceUrl: artifact.source_url,
+    artifactType: artifact.type,
+    sourceUrl: artifact.source_url ?? "",
     importance: artifact.importance,
     references: artifact.references,
     phase: artifact.phase,
-    groupId: artifact.group_id,
+    groupId: artifact.group_id ?? "",
     feedbackCount: 0,
   };
 
   if (existing) {
     editor.updateShape({
       id: shapeId,
-      type: "artifact",
+      type: "artifact" as any,
       props,
-    });
+    } as any);
   } else {
     editor.createShape({
       id: shapeId,
-      type: "artifact",
+      type: "artifact" as any,
       x: x ?? artifact.position_x,
       y: y ?? artifact.position_y,
       props,
-    });
+    } as any);
   }
 }
 
@@ -70,17 +70,17 @@ export function upsertGroupShape(
   if (existing) {
     editor.updateShape({
       id: shapeId,
-      type: "group_frame",
+      type: "group_frame" as any,
       props,
-    });
+    } as any);
   } else {
     editor.createShape({
       id: shapeId,
-      type: "group_frame",
+      type: "group_frame" as any,
       x: x ?? group.position_x,
       y: y ?? group.position_y,
       props,
-    });
+    } as any);
   }
 }
 
@@ -99,7 +99,7 @@ export function createConnectionArrow(
   if (!editor.getShape(fromId) || !editor.getShape(toId)) return;
 
   const existing = editor.getShape(arrowId);
-  if (existing) return; // Already created
+  if (existing) return;
 
   editor.createShape({
     id: arrowId,
@@ -119,15 +119,14 @@ export function createConnectionArrow(
         isExact: false,
         isPrecise: false,
       },
-      text: connection.label,
-      color:
+      labelColor:
         connection.connection_type === "competes"
           ? "red"
           : connection.connection_type === "depends"
             ? "orange"
             : "light-blue",
     },
-  });
+  } as any);
 }
 
 /**
@@ -139,17 +138,12 @@ export function syncCanvasState(
   groups: Group[],
   connections: ArtifactConnection[]
 ) {
-  // Create group frames first (so they're behind artifacts)
   for (const group of groups) {
     upsertGroupShape(editor, group);
   }
-
-  // Create artifact shapes
   for (const artifact of artifacts) {
     upsertArtifactShape(editor, artifact);
   }
-
-  // Create connection arrows
   for (const connection of connections) {
     createConnectionArrow(editor, connection);
   }

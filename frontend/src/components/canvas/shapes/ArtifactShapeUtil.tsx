@@ -1,53 +1,49 @@
 import {
   ShapeUtil,
   HTMLContainer,
-  TLBaseShape,
   Rectangle2d,
-  TLOnResizeHandler,
+  T,
   resizeBox,
 } from "tldraw";
 import { ArtifactCard } from "./ArtifactCard";
 
-// Shape type definition
-export type ArtifactShape = TLBaseShape<
-  "artifact",
-  {
-    w: number;
-    h: number;
-    artifactId: string;
-    title: string;
-    summary: string;
-    type: string;
-    sourceUrl: string | null;
-    importance: number;
-    references: string[];
-    phase: string;
-    groupId: string | null;
-    feedbackCount: number;
-  }
->;
-
-export class ArtifactShapeUtil extends ShapeUtil<ArtifactShape> {
+/** @public */
+export class ArtifactShapeUtil extends ShapeUtil<any> {
   static override type = "artifact" as const;
 
-  getDefaultProps(): ArtifactShape["props"] {
+  static override props = {
+    w: T.number,
+    h: T.number,
+    artifactId: T.string,
+    title: T.string,
+    summary: T.string,
+    artifactType: T.string,
+    sourceUrl: T.string,
+    importance: T.number,
+    references: T.arrayOf(T.string),
+    phase: T.string,
+    groupId: T.string,
+    feedbackCount: T.number,
+  };
+
+  getDefaultProps() {
     return {
       w: 300,
       h: 200,
       artifactId: "",
       title: "",
       summary: "",
-      type: "markdown",
-      sourceUrl: null,
+      artifactType: "markdown",
+      sourceUrl: "",
       importance: 50,
       references: [],
       phase: "research",
-      groupId: null,
+      groupId: "",
       feedbackCount: 0,
     };
   }
 
-  getGeometry(shape: ArtifactShape) {
+  getGeometry(shape: any) {
     return new Rectangle2d({
       width: shape.props.w,
       height: shape.props.h,
@@ -55,31 +51,36 @@ export class ArtifactShapeUtil extends ShapeUtil<ArtifactShape> {
     });
   }
 
-  component(shape: ArtifactShape) {
+  override onResize(shape: any, info: any) {
+    return resizeBox(shape, info);
+  }
+
+  component(shape: any) {
+    const p = shape.props;
     return (
       <HTMLContainer
         style={{
-          width: shape.props.w,
-          height: shape.props.h,
+          width: p.w,
+          height: p.h,
           pointerEvents: "all",
         }}
       >
         <ArtifactCard
-          artifactId={shape.props.artifactId}
-          title={shape.props.title}
-          summary={shape.props.summary}
-          type={shape.props.type}
-          sourceUrl={shape.props.sourceUrl}
-          importance={shape.props.importance}
-          references={shape.props.references}
-          phase={shape.props.phase}
-          feedbackCount={shape.props.feedbackCount}
+          artifactId={p.artifactId}
+          title={p.title}
+          summary={p.summary}
+          type={p.artifactType}
+          sourceUrl={p.sourceUrl || null}
+          importance={p.importance}
+          references={p.references}
+          phase={p.phase}
+          feedbackCount={p.feedbackCount}
         />
       </HTMLContainer>
     );
   }
 
-  indicator(shape: ArtifactShape) {
+  indicator(shape: any) {
     return (
       <rect
         width={shape.props.w}
@@ -89,8 +90,4 @@ export class ArtifactShapeUtil extends ShapeUtil<ArtifactShape> {
       />
     );
   }
-
-  override onResize: TLOnResizeHandler<ArtifactShape> = (shape, info) => {
-    return resizeBox(shape, info);
-  };
 }
