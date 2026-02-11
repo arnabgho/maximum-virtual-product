@@ -59,13 +59,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   loadProject: async (id: string) => {
     const project = await api.get<Project>(`/api/projects/${id}`);
-    const artifacts = await api.get<Artifact[]>(`/api/projects/${id}/artifacts`);
-    const [connections, groups, feedback] = await Promise.all([
-      api.get<ArtifactConnection[]>(`/api/projects/${id}/artifacts`).catch(() => []),
-      api.get<Group[]>(`/api/projects/${id}/artifacts`).catch(() => []),
-      api.get<Feedback[]>(`/api/projects/${id}/feedback`).catch(() => []),
+    const [artifacts, connections, groups, feedback] = await Promise.all([
+      api.get<Artifact[]>(`/api/projects/${id}/artifacts`),
+      api.get<ArtifactConnection[]>(`/api/projects/${id}/connections`).catch(() => [] as ArtifactConnection[]),
+      api.get<Group[]>(`/api/projects/${id}/groups`).catch(() => [] as Group[]),
+      api.get<Feedback[]>(`/api/projects/${id}/feedback`).catch(() => [] as Feedback[]),
     ]);
-    set({ project, artifacts });
+    set({ project, artifacts, connections, groups, feedback });
   },
 
   createProject: async (title: string, description = "") => {

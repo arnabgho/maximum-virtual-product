@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.db.supabase import get_db
-from app.models.schema import Artifact, ArtifactUpdate
+from app.models.schema import Artifact, ArtifactConnection, ArtifactUpdate, Group
 
 router = APIRouter(prefix="/api", tags=["artifacts"])
 
@@ -22,3 +22,15 @@ async def update_artifact(artifact_id: str, data: ArtifactUpdate):
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
     return artifact
+
+
+@router.get("/projects/{project_id}/connections", response_model=list[ArtifactConnection])
+async def list_connections(project_id: str):
+    db = get_db()
+    return await db.get_connections(project_id)
+
+
+@router.get("/projects/{project_id}/groups", response_model=list[Group])
+async def list_groups(project_id: str, phase: str | None = None):
+    db = get_db()
+    return await db.get_groups(project_id, phase)
