@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     BRAVE_API_KEY: str = ""
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    GEMINI_API_KEY: str = ""
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

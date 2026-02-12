@@ -33,6 +33,7 @@ export interface Artifact {
   position_x: number;
   position_y: number;
   metadata: Record<string, unknown>;
+  image_url?: string | null;
   references: string[];
   created_at: string;
 }
@@ -80,6 +81,8 @@ export type WSEventType =
   | "research_complete"
   | "plan_artifact_created"
   | "plan_complete"
+  | "images_generating"
+  | "image_generated"
   | "error";
 
 export interface WSEvent {

@@ -24,6 +24,7 @@ export class ArtifactShapeUtil extends ShapeUtil<any> {
     phase: T.string,
     groupId: T.string,
     feedbackCount: T.number,
+    imageUrl: T.string,
   };
 
   getDefaultProps() {
@@ -40,6 +41,7 @@ export class ArtifactShapeUtil extends ShapeUtil<any> {
       phase: "research",
       groupId: "",
       feedbackCount: 0,
+      imageUrl: "",
     };
   }
 
@@ -75,6 +77,7 @@ export class ArtifactShapeUtil extends ShapeUtil<any> {
           references={p.references}
           phase={p.phase}
           feedbackCount={p.feedbackCount}
+          imageUrl={p.imageUrl || null}
         />
       </HTMLContainer>
     );

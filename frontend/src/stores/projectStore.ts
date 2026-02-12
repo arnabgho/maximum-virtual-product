@@ -28,6 +28,7 @@ interface ProjectStore {
   setPhase: (phase: Phase) => Promise<void>;
   setSelectedArtifact: (id: string | null) => void;
   addArtifact: (artifact: Artifact) => void;
+  updateArtifactImage: (artifactId: string, imageUrl: string) => void;
   updateArtifactPosition: (id: string, x: number, y: number) => void;
   addConnection: (connection: ArtifactConnection) => void;
   addGroup: (group: Group) => void;
@@ -85,6 +86,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addArtifact: (artifact) =>
     set((s) => ({ artifacts: [...s.artifacts, artifact] })),
+
+  updateArtifactImage: (artifactId, imageUrl) =>
+    set((s) => ({
+      artifacts: s.artifacts.map((a) =>
+        a.id === artifactId ? { ...a, image_url: imageUrl } : a
+      ),
+    })),
 
   updateArtifactPosition: (id, x, y) =>
     set((s) => ({

@@ -1,7 +1,7 @@
 """Product/project breakdown service."""
 
 from app.models.schema import Artifact, ArtifactConnection, Group, generate_artifact_id
-from app.services import claude_service
+from app.services import claude_service, image_service
 from app.ws.manager import WSManager
 from app.db.supabase import get_db
 
@@ -68,6 +68,24 @@ async def run_plan(
         await ws_manager.send_event(project_id, "error", {
             "message": f"Failed to save plan: {str(e)}",
         })
+
+    # Generate images for plan components
+    await ws_manager.send_event(project_id, "images_generating", {
+        "total": len(plan_artifacts),
+    })
+
+    async def on_image_progress(artifact_id: str, success: bool, image_url: str | None):
+        if success and image_url:
+            await db.update_artifact_image(artifact_id, image_url)
+            await ws_manager.send_event(project_id, "image_generated", {
+                "artifact_id": artifact_id,
+                "image_url": image_url,
+            })
+
+    artifact_dicts_for_images = [a.model_dump() for a in plan_artifacts]
+    await image_service.generate_images_parallel(
+        artifact_dicts_for_images, description, on_progress=on_image_progress
+    )
 
     # Final event
     await ws_manager.send_event(project_id, "plan_complete", {

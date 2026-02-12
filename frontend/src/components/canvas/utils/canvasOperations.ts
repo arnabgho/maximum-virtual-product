@@ -27,6 +27,7 @@ export function upsertArtifactShape(
     phase: artifact.phase,
     groupId: artifact.group_id ?? "",
     feedbackCount: 0,
+    imageUrl: artifact.image_url ?? "",
   };
 
   if (existing) {

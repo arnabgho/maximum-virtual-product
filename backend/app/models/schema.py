@@ -44,6 +44,7 @@ class Artifact(BaseModel):
     group_id: str | None = None
     position_x: float = 0.0
     position_y: float = 0.0
+    image_url: str | None = None
     metadata: dict = Field(default_factory=dict)
     references: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)

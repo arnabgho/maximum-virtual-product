@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
 import { ArtifactIdBadge } from "./ArtifactIdBadge";
 import { MarkdownContent } from "./MarkdownContent";
@@ -5,6 +6,7 @@ import { FeedbackPanel } from "../feedback/FeedbackPanel";
 
 export function ArtifactDetail() {
   const { selectedArtifactId, artifacts, setSelectedArtifact } = useProjectStore();
+  const [imageExpanded, setImageExpanded] = useState(false);
   const artifact = artifacts.find((a) => a.id === selectedArtifactId);
 
   if (!artifact) return null;
@@ -34,6 +36,23 @@ export function ArtifactDetail() {
             {artifact.source_url}
           </a>
         </div>
+      )}
+      {artifact.image_url && (
+        <>
+          <div
+            className="px-4 pt-4 cursor-pointer"
+            onClick={() => setImageExpanded(!imageExpanded)}
+          >
+            <img
+              src={artifact.image_url}
+              alt={artifact.title}
+              className={`w-full rounded-lg border border-[#3a3a4e] ${imageExpanded ? "" : "max-h-64 object-cover"}`}
+            />
+            <p className="text-xs text-zinc-500 mt-1 text-center">
+              {imageExpanded ? "Click to collapse" : "Click to expand"}
+            </p>
+          </div>
+        </>
       )}
       <div className="p-4 flex-1">
         <MarkdownContent content={artifact.content} />

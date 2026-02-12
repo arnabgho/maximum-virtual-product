@@ -11,6 +11,7 @@ interface ArtifactCardProps {
   references: string[];
   phase: string;
   feedbackCount: number;
+  imageUrl: string | null;
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -41,6 +42,7 @@ export function ArtifactCard({
   references,
   phase,
   feedbackCount,
+  imageUrl,
 }: ArtifactCardProps) {
   const [copied, setCopied] = useState(false);
   const setSelectedArtifact = useProjectStore((s) => s.setSelectedArtifact);
@@ -115,6 +117,30 @@ export function ArtifactCard({
         )}
       </div>
 
+      {/* Image thumbnail */}
+      {imageUrl && (
+        <div
+          style={{
+            marginBottom: 6,
+            borderRadius: 4,
+            overflow: "hidden",
+            maxHeight: 120,
+            flexShrink: 0,
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt={title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
+
       {/* Title */}
       <div
         style={{
@@ -125,7 +151,7 @@ export function ArtifactCard({
           marginBottom: 6,
           overflow: "hidden",
           display: "-webkit-box",
-          WebkitLineClamp: 2,
+          WebkitLineClamp: imageUrl ? 1 : 2,
           WebkitBoxOrient: "vertical",
         }}
       >
@@ -133,20 +159,22 @@ export function ArtifactCard({
       </div>
 
       {/* Summary */}
-      <div
-        style={{
-          fontSize: 11,
-          color: "#a1a1aa",
-          lineHeight: 1.4,
-          flex: 1,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-        }}
-      >
-        {summary}
-      </div>
+      {!imageUrl && (
+        <div
+          style={{
+            fontSize: 11,
+            color: "#a1a1aa",
+            lineHeight: 1.4,
+            flex: 1,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {summary}
+        </div>
+      )}
 
       {/* Footer */}
       <div

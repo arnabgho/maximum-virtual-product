@@ -71,6 +71,11 @@ class SupabaseDB:
         result = self._client.table("artifacts").insert(data).execute()
         return [Artifact(**row) for row in result.data]
 
+    async def update_artifact_image(self, artifact_id: str, image_url: str) -> None:
+        self._client.table("artifacts").update(
+            {"image_url": image_url}
+        ).eq("id", artifact_id).execute()
+
     # ── Connection methods ───────────────────────────────────────────
 
     async def create_connection(self, conn: ArtifactConnection) -> ArtifactConnection:

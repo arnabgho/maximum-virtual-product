@@ -56,6 +56,13 @@ export function useWebSocket(projectId: string | null) {
           });
           break;
 
+        case "image_generated":
+          store.updateArtifactImage(
+            event.data.artifact_id as string,
+            event.data.image_url as string
+          );
+          break;
+
         case "research_complete":
           store.setResearching(false);
           break;
