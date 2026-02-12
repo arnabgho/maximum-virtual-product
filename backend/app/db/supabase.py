@@ -43,6 +43,14 @@ class SupabaseDB:
             return Project(**result.data[0])
         return None
 
+    async def list_projects(self) -> list[Project]:
+        result = self._client.table("projects").select("*").order("updated_at", desc=True).execute()
+        return [Project(**row) for row in result.data]
+
+    async def delete_project(self, project_id: str) -> bool:
+        result = self._client.table("projects").delete().eq("id", project_id).execute()
+        return len(result.data) > 0
+
     # ── Artifact methods ─────────────────────────────────────────────
 
     async def create_artifact(self, artifact: Artifact) -> Artifact:

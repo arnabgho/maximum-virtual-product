@@ -6,6 +6,12 @@ from app.models.schema import Project, ProjectCreate, ProjectUpdate
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
+@router.get("", response_model=list[Project])
+async def list_projects():
+    db = get_db()
+    return await db.list_projects()
+
+
 @router.post("", response_model=Project)
 async def create_project(data: ProjectCreate):
     db = get_db()
@@ -32,3 +38,12 @@ async def update_project(project_id: str, data: ProjectUpdate):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+
+@router.delete("/{project_id}")
+async def delete_project(project_id: str):
+    db = get_db()
+    success = await db.delete_project(project_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"status": "deleted"}

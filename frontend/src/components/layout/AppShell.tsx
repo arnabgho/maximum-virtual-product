@@ -7,7 +7,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import { useWebSocket } from "../../hooks/useWebSocket";
 
 export function AppShell() {
-  const { project, selectedArtifactId } = useProjectStore();
+  const { project } = useProjectStore();
   useWebSocket(project?.id ?? null);
 
   return (
@@ -19,8 +19,8 @@ export function AppShell() {
           <ProjectCanvas />
           <StatusBar />
         </main>
-        {selectedArtifactId && <ArtifactDetail />}
       </div>
+      <ArtifactDetail />
     </div>
   );
 }

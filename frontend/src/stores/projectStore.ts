@@ -12,6 +12,7 @@ import { api } from "../api/client";
 
 interface ProjectStore {
   // State
+  projects: Project[];
   project: Project | null;
   artifacts: Artifact[];
   connections: ArtifactConnection[];
@@ -27,6 +28,9 @@ interface ProjectStore {
   isRegenerating: string | null; // artifact ID being regenerated
 
   // Actions
+  listProjects: () => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  openProject: (id: string) => Promise<void>;
   loadProject: (id: string) => Promise<void>;
   createProject: (title: string, description?: string) => Promise<Project>;
   setPhase: (phase: Phase) => Promise<void>;
@@ -53,23 +57,42 @@ interface ProjectStore {
 }
 
 const initialState = {
-  project: null,
-  artifacts: [],
-  connections: [],
-  groups: [],
-  feedback: [],
-  agents: [],
-  selectedArtifactId: null,
+  projects: [] as Project[],
+  project: null as Project | null,
+  artifacts: [] as Artifact[],
+  connections: [] as ArtifactConnection[],
+  groups: [] as Group[],
+  feedback: [] as Feedback[],
+  agents: [] as AgentStatus[],
+  selectedArtifactId: null as string | null,
   isResearching: false,
   isPlanning: false,
   researchQuery: "",
   planDescription: "",
-  imageGenerationProgress: null,
-  isRegenerating: null,
+  imageGenerationProgress: null as { total: number; completed: number } | null,
+  isRegenerating: null as string | null,
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   ...initialState,
+
+  listProjects: async () => {
+    const projects = await api.get<Project[]>("/api/projects");
+    set({ projects });
+  },
+
+  deleteProject: async (id: string) => {
+    await api.delete(`/api/projects/${id}`);
+    const { project } = get();
+    set((s) => ({
+      projects: s.projects.filter((p) => p.id !== id),
+      ...(project?.id === id ? initialState : {}),
+    }));
+  },
+
+  openProject: async (id: string) => {
+    await get().loadProject(id);
+  },
 
   loadProject: async (id: string) => {
     const project = await api.get<Project>(`/api/projects/${id}`);
