@@ -77,14 +77,14 @@ def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[
     return artifacts, group_objects
 
 
-async def run_research(project_id: str, query: str, ws_manager: WSManager):
-    """Run the full research pipeline: plan -> parallel agents -> synthesize."""
+async def run_research(project_id: str, query: str, ws_manager: WSManager, *, context: dict | None = None):
+    """Run the full research pipeline: plan -> parallel agents -> synthesize -> suggest directions."""
     db = get_db()
 
-    logger.info("Research started for project=%s query=%r", project_id, query)
+    logger.info("Research started for project=%s query=%r context=%r", project_id, query, context)
 
-    # Step 1: Claude plans research angles
-    angles = await claude_service.plan_research(query)
+    # Step 1: Claude plans research angles (enriched with user context)
+    angles = await claude_service.plan_research(query, context=context)
     logger.info("Planned %d research angles", len(angles))
 
     # Step 2: Run sub-agents in parallel
@@ -196,6 +196,18 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
         "summary": synthesis.get("summary", ""),
         "total_artifacts": len(all_artifacts),
     })
+
+    # Step 4b: Generate plan directions from research findings
+    try:
+        directions = await claude_service.suggest_plan_directions(
+            query, context or {}, artifact_dicts
+        )
+        logger.info("Generated %d plan directions for project=%s", len(directions), project_id)
+        await ws_manager.send_event(project_id, "plan_directions_ready", {
+            "directions": directions,
+        })
+    except Exception as e:
+        logger.error("Plan direction generation failed: %s", e)
 
     # Step 5: Generate images as a fire-and-forget background task
     logger.info("Image generation starting for %d artifacts", len(all_artifacts))
