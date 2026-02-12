@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.config import get_settings
 from app.routers import artifacts, feedback, plan, projects, research, video
 from app.ws.handlers import handle_project_ws
@@ -21,6 +20,9 @@ async def lifespan(app: FastAPI):
         datefmt="%H:%M:%S",
     )
     logger.info("MVP backend starting up")
+    from app.db.supabase import get_db
+    db = get_db()
+    db.ensure_video_bucket()
     yield
     logger.info("MVP backend shutting down")
 

@@ -6,7 +6,8 @@ export type ArtifactType =
   | "image"
   | "research_finding"
   | "competitor"
-  | "plan_component";
+  | "plan_component"
+  | "video";
 
 export type ConnectionType = "related" | "competes" | "depends" | "references";
 

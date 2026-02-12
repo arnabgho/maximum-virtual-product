@@ -21,6 +21,7 @@ const TYPE_ICONS: Record<string, string> = {
   markdown: "\uD83D\uDCDD",
   mermaid: "\uD83D\uDCCA",
   image: "\uD83D\uDDBC\uFE0F",
+  video: "\uD83C\uDFAC",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -30,6 +31,7 @@ const TYPE_COLORS: Record<string, string> = {
   markdown: "#8b5cf6",
   mermaid: "#06b6d4",
   image: "#ec4899",
+  video: "#a855f7",
 };
 
 export function ArtifactCard({
@@ -117,8 +119,26 @@ export function ArtifactCard({
         )}
       </div>
 
+      {/* Video player */}
+      {type === "video" && sourceUrl && (
+        <div
+          style={{
+            flex: 1,
+            borderRadius: 4,
+            overflow: "hidden",
+          }}
+        >
+          <video
+            src={sourceUrl}
+            controls
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* Image thumbnail */}
-      {imageUrl && (
+      {imageUrl && type !== "video" && (
         <div
           style={{
             marginBottom: 6,
@@ -159,7 +179,7 @@ export function ArtifactCard({
       </div>
 
       {/* Summary */}
-      {!imageUrl && (
+      {!imageUrl && type !== "video" && (
         <div
           style={{
             fontSize: 11,

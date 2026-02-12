@@ -22,6 +22,37 @@ CARD_HEIGHT = 240
 GAP = 40
 
 
+def _remove_cycles(connections_data: list[dict], artifact_ids: set[str]) -> list[dict]:
+    """Remove back-edges to enforce DAG constraint using DFS."""
+    from collections import defaultdict
+
+    adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for i, c in enumerate(connections_data):
+        src, dst = c.get("from_id", ""), c.get("to_id", "")
+        if src in artifact_ids and dst in artifact_ids:
+            adj[src].append((dst, i))
+
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {aid: WHITE for aid in artifact_ids}
+    back_edges: set[int] = set()
+
+    def dfs(node: str) -> None:
+        color[node] = GRAY
+        for neighbor, edge_idx in adj[node]:
+            if color[neighbor] == GRAY:
+                back_edges.add(edge_idx)
+                logger.warning("Cycle detected: removing edge %s → %s", node, neighbor)
+            elif color[neighbor] == WHITE:
+                dfs(neighbor)
+        color[node] = BLACK
+
+    for aid in artifact_ids:
+        if color[aid] == WHITE:
+            dfs(aid)
+
+    return [c for i, c in enumerate(connections_data) if i not in back_edges]
+
+
 def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[Artifact], list[Group]]:
     """Compute grid positions for artifacts, grouped."""
     group_objects = []
@@ -123,11 +154,13 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
     # Compute layout
     all_artifacts, group_objects = compute_layout(all_artifacts, synthesis.get("groups", []))
 
-    # Create connections
+    # Create connections (enforce DAG — remove any cycles)
+    artifact_ids = {a.id for a in all_artifacts}
+    raw_connections = synthesis.get("connections", [])
+    dag_connections = _remove_cycles(raw_connections, artifact_ids)
+
     connections = []
-    for conn_data in synthesis.get("connections", []):
-        # Verify both artifacts exist
-        artifact_ids = {a.id for a in all_artifacts}
+    for conn_data in dag_connections:
         from_id = conn_data.get("from_id", "")
         to_id = conn_data.get("to_id", "")
         if from_id in artifact_ids and to_id in artifact_ids:

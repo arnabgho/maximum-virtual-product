@@ -1,6 +1,7 @@
 import { useProjectStore } from "../../stores/projectStore";
 import { ResearchInput } from "../research/ResearchInput";
 import { PlanInput } from "../plan/PlanInput";
+import { VideoExport } from "../research/VideoExport";
 
 export function Sidebar() {
   const { project, artifacts, setSelectedArtifact, selectedArtifactId } = useProjectStore();
@@ -38,6 +39,7 @@ export function Sidebar() {
           </p>
         )}
       </div>
+      {project.phase === "research" && phaseArtifacts.length > 0 && <VideoExport />}
     </aside>
   );
 }

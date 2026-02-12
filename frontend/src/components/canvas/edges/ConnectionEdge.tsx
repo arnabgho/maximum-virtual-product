@@ -26,6 +26,7 @@ export function ConnectionEdge({
   sourcePosition,
   targetPosition,
   data,
+  markerEnd,
 }: EdgeProps) {
   const d = data as unknown as ConnectionEdgeData;
   const color = TYPE_COLORS[d.connectionType] || "#3b82f6";
@@ -41,7 +42,7 @@ export function ConnectionEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={{ stroke: color, strokeWidth: 2 }} />
+      <BaseEdge id={id} path={edgePath} style={{ stroke: color, strokeWidth: 2 }} markerEnd={markerEnd} />
       {d.label && (
         <EdgeLabelRenderer>
           <div

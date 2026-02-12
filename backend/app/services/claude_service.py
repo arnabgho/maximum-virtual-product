@@ -260,11 +260,18 @@ Return a JSON object with:
    - "color": hex color (pick distinct colors)
    - "artifact_ids": array of artifact IDs that belong to this group
 
-2. "connections": Array of connections between artifacts, each with:
-   - "from_id": artifact ID
-   - "to_id": artifact ID
+2. "connections": Array of DIRECTED connections forming a DAG (no cycles).
+   Each connection flows from a foundational artifact to one that builds upon it.
+   - "from_id": the prerequisite/foundational artifact ID
+   - "to_id": the artifact that builds upon or extends from_id
    - "label": relationship description (2-5 words)
-   - "connection_type": "related", "competes", "depends", or "references"
+   - "connection_type": "depends", "references", "related", or "competes"
+
+   Rules:
+   - from_id is the FOUNDATION, to_id BUILDS ON it
+   - NO cycles (if A→B exists, no path from B back to A)
+   - Aim for layers: some root artifacts (no incoming), some leaves (no outgoing)
+   - Every artifact should have at least one connection
 
 3. "summary": A markdown summary (2-3 paragraphs) synthesizing all research findings
 

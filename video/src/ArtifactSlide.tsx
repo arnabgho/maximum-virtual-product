@@ -1,4 +1,4 @@
-import { useCurrentFrame, interpolate, spring, useVideoConfig } from "remotion";
+import { useCurrentFrame, interpolate, spring, useVideoConfig, Img } from "remotion";
 
 interface ArtifactSlideProps {
   title: string;
@@ -7,6 +7,8 @@ interface ArtifactSlideProps {
   sourceUrl?: string;
   groupTitle?: string;
   importance?: number;
+  imageUrl?: string | null;
+  breadcrumbs?: string[];
   startFrame: number;
   duration: number;
 }
@@ -18,6 +20,8 @@ export function ArtifactSlide({
   sourceUrl,
   groupTitle,
   importance = 50,
+  imageUrl,
+  breadcrumbs = [],
   startFrame,
   duration,
 }: ArtifactSlideProps) {
@@ -56,6 +60,7 @@ export function ArtifactSlide({
   const isTitle = type === "title";
   const importanceColor =
     importance > 70 ? "#818cf8" : importance > 40 ? "#6366f1" : "#4f46e5";
+  const hasImage = imageUrl && !isTitle;
 
   return (
     <div
@@ -66,8 +71,8 @@ export function ArtifactSlide({
         width: "100%",
         height: "100%",
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        flexDirection: hasImage ? "row" : "column",
+        justifyContent: hasImage ? "flex-start" : "center",
         alignItems: "center",
         padding: "80px 120px",
         background: isTitle
@@ -77,88 +82,170 @@ export function ArtifactSlide({
         transform: `translateY(${translateY}px)`,
       }}
     >
-      {/* Group tag */}
-      {groupTitle && (
+      {/* Text content side */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: hasImage ? "flex-start" : "center",
+          flex: hasImage ? "1 1 55%" : "1",
+          maxWidth: hasImage ? "55%" : "100%",
+        }}
+      >
+        {/* Breadcrumbs — "Builds on" pills */}
+        {breadcrumbs.length > 0 && !isTitle && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 16,
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                opacity: interpolate(relativeFrame, [0, 10], [0, 1], {
+                  extrapolateRight: "clamp",
+                }),
+                fontSize: 18,
+                color: "#6b7280",
+                fontWeight: 500,
+              }}
+            >
+              Builds on:
+            </span>
+            {breadcrumbs.map((bc, i) => (
+              <span
+                key={i}
+                style={{
+                  opacity: interpolate(
+                    relativeFrame,
+                    [3 + i * 3, 10 + i * 3],
+                    [0, 1],
+                    { extrapolateRight: "clamp" }
+                  ),
+                  fontSize: 16,
+                  color: "#a78bfa",
+                  background: "#a78bfa20",
+                  padding: "4px 12px",
+                  borderRadius: 16,
+                  border: "1px solid #a78bfa40",
+                }}
+              >
+                {bc}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Group tag */}
+        {groupTitle && (
+          <div
+            style={{
+              opacity: titleOpacity,
+              fontSize: 24,
+              color: "#818cf8",
+              fontWeight: 500,
+              marginBottom: 16,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          >
+            {groupTitle}
+          </div>
+        )}
+
+        {/* Type badge */}
+        {!isTitle && (
+          <div
+            style={{
+              opacity: titleOpacity,
+              fontSize: 18,
+              color: importanceColor,
+              fontWeight: 600,
+              marginBottom: 12,
+              padding: "4px 16px",
+              border: `1px solid ${importanceColor}`,
+              borderRadius: 20,
+              letterSpacing: 1,
+            }}
+          >
+            {type.replace("_", " ").toUpperCase()}
+          </div>
+        )}
+
+        {/* Title */}
         <div
           style={{
             opacity: titleOpacity,
-            fontSize: 24,
-            color: "#818cf8",
-            fontWeight: 500,
-            marginBottom: 16,
-            letterSpacing: 2,
-            textTransform: "uppercase",
+            fontSize: isTitle ? 72 : 52,
+            fontWeight: 700,
+            color: "#ffffff",
+            textAlign: hasImage ? "left" : "center",
+            maxWidth: "100%",
+            lineHeight: 1.2,
+            marginBottom: 32,
           }}
         >
-          {groupTitle}
+          {title}
         </div>
-      )}
 
-      {/* Type badge */}
-      {!isTitle && (
-        <div
-          style={{
-            opacity: titleOpacity,
-            fontSize: 18,
-            color: importanceColor,
-            fontWeight: 600,
-            marginBottom: 12,
-            padding: "4px 16px",
-            border: `1px solid ${importanceColor}`,
-            borderRadius: 20,
-            letterSpacing: 1,
-          }}
-        >
-          {type.replace("_", " ").toUpperCase()}
-        </div>
-      )}
-
-      {/* Title */}
-      <div
-        style={{
-          opacity: titleOpacity,
-          fontSize: isTitle ? 72 : 52,
-          fontWeight: 700,
-          color: "#ffffff",
-          textAlign: "center",
-          maxWidth: "80%",
-          lineHeight: 1.2,
-          marginBottom: 32,
-        }}
-      >
-        {title}
-      </div>
-
-      {/* Content */}
-      <div
-        style={{
-          opacity: contentOpacity,
-          fontSize: isTitle ? 28 : 24,
-          color: "#a1a1aa",
-          textAlign: "center",
-          maxWidth: "70%",
-          lineHeight: 1.6,
-          display: "-webkit-box",
-          WebkitLineClamp: 6,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
-      >
-        {content}
-      </div>
-
-      {/* Source URL */}
-      {sourceUrl && (
+        {/* Content */}
         <div
           style={{
             opacity: contentOpacity,
-            position: "absolute",
-            bottom: 60,
-            fontSize: 18,
-            color: "#6366f1",
+            fontSize: isTitle ? 28 : 24,
+            color: "#a1a1aa",
+            textAlign: hasImage ? "left" : "center",
+            maxWidth: "100%",
+            lineHeight: 1.6,
+            display: "-webkit-box",
+            WebkitLineClamp: 6,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}
         >
-          {sourceUrl}
+          {content}
+        </div>
+
+        {/* Source URL */}
+        {sourceUrl && (
+          <div
+            style={{
+              opacity: contentOpacity,
+              marginTop: 24,
+              fontSize: 18,
+              color: "#6366f1",
+            }}
+          >
+            {sourceUrl}
+          </div>
+        )}
+      </div>
+
+      {/* Image side */}
+      {hasImage && (
+        <div
+          style={{
+            flex: "1 1 40%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            marginLeft: 60,
+            opacity: contentOpacity,
+          }}
+        >
+          <Img
+            src={imageUrl}
+            style={{
+              maxWidth: "100%",
+              maxHeight: 700,
+              borderRadius: 16,
+              objectFit: "contain",
+            }}
+          />
         </div>
       )}
 

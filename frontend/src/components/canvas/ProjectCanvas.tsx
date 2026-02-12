@@ -63,8 +63,8 @@ function ProjectCanvasInner() {
 
   // Sync store → React Flow nodes
   useEffect(() => {
-    setNodes(buildNodes(phaseArtifacts, phaseGroups));
-  }, [phaseArtifacts, phaseGroups, setNodes]);
+    setNodes(buildNodes(phaseArtifacts, phaseGroups, phaseConnections));
+  }, [phaseArtifacts, phaseGroups, phaseConnections, setNodes]);
 
   // Sync store → React Flow edges
   useEffect(() => {

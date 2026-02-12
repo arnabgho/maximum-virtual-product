@@ -45,12 +45,12 @@ function ArtifactNodeInner({ data }: NodeProps) {
       />
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Top}
         style={{ opacity: 0, pointerEvents: "none" }}
       />
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         style={{ opacity: 0, pointerEvents: "none" }}
       />
     </div>

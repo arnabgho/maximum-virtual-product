@@ -1,7 +1,10 @@
-import type { Artifact, Group } from "../../../types";
+import dagre from "@dagrejs/dagre";
+import type { Artifact, ArtifactConnection, Group } from "../../../types";
 
 export const CARD_WIDTH = 300;
 export const CARD_HEIGHT = 200;
+export const VIDEO_WIDTH = 480;
+export const VIDEO_HEIGHT = 320;
 export const GAP = 40;
 export const GRID_COLS = 4;
 export const GROUP_HEADER_HEIGHT = 50;
@@ -16,8 +19,9 @@ export interface LayoutResult {
 
 /**
  * Compute grid layout for artifacts, optionally grouped.
+ * Kept as fallback when there are no connections.
  */
-export function computeLayout(
+export function computeGridLayout(
   artifacts: Artifact[],
   groups: Group[]
 ): LayoutResult {
@@ -79,4 +83,111 @@ export function computeLayout(
   }
 
   return { artifacts: layoutArtifacts, groups: layoutGroups };
+}
+
+/**
+ * Compute DAG layout using dagre (top-to-bottom).
+ * Artifacts are nodes, connections are edges.
+ * Group bounding boxes are computed from member positions.
+ */
+function computeDagLayout(
+  artifacts: Artifact[],
+  groups: Group[],
+  connections: ArtifactConnection[]
+): LayoutResult {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: "TB",
+    nodesep: GAP,
+    ranksep: GAP * 2,
+    marginx: GAP,
+    marginy: GAP,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  // Add nodes
+  for (const a of artifacts) {
+    g.setNode(a.id, { width: CARD_WIDTH, height: CARD_HEIGHT });
+  }
+
+  // Add edges
+  for (const c of connections) {
+    g.setEdge(c.from_artifact_id, c.to_artifact_id);
+  }
+
+  dagre.layout(g);
+
+  // Read positions (dagre gives center coords — convert to top-left)
+  const posMap = new Map<string, { x: number; y: number }>();
+  for (const a of artifacts) {
+    const node = g.node(a.id);
+    if (node) {
+      posMap.set(a.id, {
+        x: node.x - CARD_WIDTH / 2,
+        y: node.y - CARD_HEIGHT / 2,
+      });
+    }
+  }
+
+  const layoutArtifacts: LayoutResult["artifacts"] = artifacts.map((a) => ({
+    ...a,
+    layoutX: posMap.get(a.id)?.x ?? 0,
+    layoutY: posMap.get(a.id)?.y ?? 0,
+  }));
+
+  // Compute group bounding boxes from member positions
+  const layoutGroups: LayoutResult["groups"] = [];
+  for (const group of groups) {
+    const members = layoutArtifacts.filter((a) => a.group_id === group.id);
+    if (members.length === 0) continue;
+
+    const minX = Math.min(...members.map((m) => m.layoutX));
+    const minY = Math.min(...members.map((m) => m.layoutY));
+    const maxX = Math.max(...members.map((m) => m.layoutX + CARD_WIDTH));
+    const maxY = Math.max(...members.map((m) => m.layoutY + CARD_HEIGHT));
+
+    layoutGroups.push({
+      ...group,
+      layoutX: minX - GROUP_PADDING,
+      layoutY: minY - GROUP_HEADER_HEIGHT - GROUP_PADDING,
+      layoutW: maxX - minX + GROUP_PADDING * 2,
+      layoutH: maxY - minY + GROUP_HEADER_HEIGHT + GROUP_PADDING * 2,
+    });
+  }
+
+  return { artifacts: layoutArtifacts, groups: layoutGroups };
+}
+
+/**
+ * Compute layout: uses dagre DAG layout when connections exist, grid otherwise.
+ */
+export function computeLayout(
+  artifacts: Artifact[],
+  groups: Group[],
+  connections: ArtifactConnection[] = []
+): LayoutResult {
+  const regularArtifacts = artifacts.filter((a) => a.type !== "video");
+  const videoArtifacts = artifacts.filter((a) => a.type === "video");
+
+  const result =
+    connections.length > 0
+      ? computeDagLayout(regularArtifacts, groups, connections)
+      : computeGridLayout(regularArtifacts, groups);
+
+  // Position video artifacts below the DAG/grid
+  if (videoArtifacts.length > 0) {
+    const maxY = Math.max(
+      0,
+      ...result.artifacts.map((a) => a.layoutY + CARD_HEIGHT)
+    );
+    for (let i = 0; i < videoArtifacts.length; i++) {
+      result.artifacts.push({
+        ...videoArtifacts[i]!,
+        layoutX: i * (VIDEO_WIDTH + GAP),
+        layoutY: maxY + GAP * 2,
+      });
+    }
+  }
+
+  return result;
 }
