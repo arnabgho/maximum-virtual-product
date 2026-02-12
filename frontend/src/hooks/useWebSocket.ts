@@ -56,15 +56,33 @@ export function useWebSocket(projectId: string | null) {
           });
           break;
 
+        case "images_generating":
+          store.setImageGenerationProgress(event.data.total as number);
+          break;
+
         case "image_generated":
           store.updateArtifactImage(
             event.data.artifact_id as string,
             event.data.image_url as string
           );
+          store.incrementImageGeneration();
+          break;
+
+        case "artifact_updated":
+          store.updateArtifact(event.data.artifact as unknown as Artifact);
+          store.setRegenerating(null);
+          break;
+
+        case "feedback_addressed":
+          store.markFeedbackAddressed(event.data.artifact_id as string);
           break;
 
         case "research_complete":
           store.setResearching(false);
+          break;
+
+        case "images_complete":
+          store.setImageGenerationProgress(null);
           break;
 
         case "plan_complete":

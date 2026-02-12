@@ -74,7 +74,7 @@ async def generate_artifact_image(artifact: dict, context: str) -> str | None:
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     client.models.generate_content,
-                    model="gemini-2.0-flash-preview-image-generation",
+                    model="gemini-3-pro-image-preview",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE", "TEXT"],

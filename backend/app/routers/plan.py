@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, HTTPException
 
@@ -7,7 +8,22 @@ from app.models.schema import PlanQuery
 from app.services.plan_service import run_plan
 from app.ws.manager import get_ws_manager
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["plan"])
+
+
+async def _safe_run_plan(project_id, description, reference_ids, ws_manager):
+    """Wrapper that catches and reports errors from the background task."""
+    try:
+        await run_plan(project_id, description, reference_ids, ws_manager)
+    except Exception as e:
+        logger.exception("Plan pipeline failed for project %s", project_id)
+        try:
+            await ws_manager.send_event(project_id, "error", {
+                "message": f"Plan generation failed: {str(e)}",
+            })
+        except Exception:
+            pass
 
 
 @router.post("/{project_id}/plan")
@@ -21,7 +37,7 @@ async def start_plan(project_id: str, data: PlanQuery):
 
     # Run plan in background task
     asyncio.create_task(
-        run_plan(project_id, data.description, data.reference_artifact_ids, ws_manager)
+        _safe_run_plan(project_id, data.description, data.reference_artifact_ids, ws_manager)
     )
 
     return {"status": "started", "description": data.description}

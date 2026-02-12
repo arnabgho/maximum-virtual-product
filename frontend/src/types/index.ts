@@ -83,6 +83,8 @@ export type WSEventType =
   | "plan_complete"
   | "images_generating"
   | "image_generated"
+  | "artifact_updated"
+  | "feedback_addressed"
   | "error";
 
 export interface WSEvent {

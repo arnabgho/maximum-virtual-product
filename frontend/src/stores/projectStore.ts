@@ -21,6 +21,10 @@ interface ProjectStore {
   selectedArtifactId: string | null;
   isResearching: boolean;
   isPlanning: boolean;
+  researchQuery: string;
+  planDescription: string;
+  imageGenerationProgress: { total: number; completed: number } | null;
+  isRegenerating: string | null; // artifact ID being regenerated
 
   // Actions
   loadProject: (id: string) => Promise<void>;
@@ -28,14 +32,19 @@ interface ProjectStore {
   setPhase: (phase: Phase) => Promise<void>;
   setSelectedArtifact: (id: string | null) => void;
   addArtifact: (artifact: Artifact) => void;
+  updateArtifact: (artifact: Artifact) => void;
   updateArtifactImage: (artifactId: string, imageUrl: string) => void;
   updateArtifactPosition: (id: string, x: number, y: number) => void;
   addConnection: (connection: ArtifactConnection) => void;
   addGroup: (group: Group) => void;
   addFeedback: (fb: Feedback) => void;
+  markFeedbackAddressed: (artifactId: string) => void;
   setAgentStatus: (agent: AgentStatus) => void;
-  setResearching: (v: boolean) => void;
-  setPlanning: (v: boolean) => void;
+  setResearching: (v: boolean, query?: string) => void;
+  setPlanning: (v: boolean, description?: string) => void;
+  setImageGenerationProgress: (total: number | null) => void;
+  incrementImageGeneration: () => void;
+  setRegenerating: (artifactId: string | null) => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -53,6 +62,10 @@ const initialState = {
   selectedArtifactId: null,
   isResearching: false,
   isPlanning: false,
+  researchQuery: "",
+  planDescription: "",
+  imageGenerationProgress: null,
+  isRegenerating: null,
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -85,7 +98,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setSelectedArtifact: (id) => set({ selectedArtifactId: id }),
 
   addArtifact: (artifact) =>
-    set((s) => ({ artifacts: [...s.artifacts, artifact] })),
+    set((s) => {
+      if (s.artifacts.some((a) => a.id === artifact.id)) return s;
+      return { artifacts: [...s.artifacts, artifact] };
+    }),
+
+  updateArtifact: (artifact) =>
+    set((s) => ({
+      artifacts: s.artifacts.map((a) =>
+        a.id === artifact.id ? artifact : a
+      ),
+    })),
 
   updateArtifactImage: (artifactId, imageUrl) =>
     set((s) => ({
@@ -110,6 +133,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   addFeedback: (fb) =>
     set((s) => ({ feedback: [...s.feedback, fb] })),
 
+  markFeedbackAddressed: (artifactId) =>
+    set((s) => ({
+      feedback: s.feedback.map((f) =>
+        f.artifact_id === artifactId && f.status === "pending"
+          ? { ...f, status: "addressed" as const }
+          : f
+      ),
+    })),
+
   setAgentStatus: (agent) =>
     set((s) => {
       const existing = s.agents.findIndex((a) => a.agent_id === agent.agent_id);
@@ -121,8 +153,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return { agents: [...s.agents, agent] };
     }),
 
-  setResearching: (v) => set({ isResearching: v }),
-  setPlanning: (v) => set({ isPlanning: v }),
+  setResearching: (v, query) =>
+    set({ isResearching: v, ...(query !== undefined ? { researchQuery: query } : {}) }),
+  setPlanning: (v, description) =>
+    set({ isPlanning: v, ...(description !== undefined ? { planDescription: description } : {}), ...(v ? {} : { imageGenerationProgress: null }) }),
+  setImageGenerationProgress: (total) =>
+    set({ imageGenerationProgress: total != null ? { total, completed: 0 } : null }),
+  incrementImageGeneration: () =>
+    set((s) => ({
+      imageGenerationProgress: s.imageGenerationProgress
+        ? { ...s.imageGenerationProgress, completed: s.imageGenerationProgress.completed + 1 }
+        : null,
+    })),
+  setRegenerating: (artifactId) => set({ isRegenerating: artifactId }),
 
   reset: () => set(initialState),
 

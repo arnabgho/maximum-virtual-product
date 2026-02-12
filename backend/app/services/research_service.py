@@ -1,6 +1,8 @@
 """Orchestrates parallel research sub-agents."""
 
 import asyncio
+import logging
+
 from app.models.schema import (
     Artifact,
     ArtifactConnection,
@@ -12,6 +14,7 @@ from app.agents.research_agent import ResearchAgent
 from app.ws.manager import WSManager
 from app.db.supabase import get_db
 
+logger = logging.getLogger(__name__)
 
 GRID_COLS = 4
 CARD_WIDTH = 320
@@ -77,10 +80,14 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
     """Run the full research pipeline: plan -> parallel agents -> synthesize."""
     db = get_db()
 
+    logger.info("Research started for project=%s query=%r", project_id, query)
+
     # Step 1: Claude plans research angles
     angles = await claude_service.plan_research(query)
+    logger.info("Planned %d research angles", len(angles))
 
     # Step 2: Run sub-agents in parallel
+    logger.info("Spawning %d research agents", len(angles))
     tasks = []
     for angle in angles:
         agent = ResearchAgent(angle, project_id, ws_manager)
@@ -90,12 +97,18 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
 
     # Collect all artifacts from successful agents
     all_artifacts: list[Artifact] = []
+    failed_count = 0
     for result in results:
         if isinstance(result, Exception):
+            failed_count += 1
             continue
         all_artifacts.extend(result)
 
+    succeeded = len(results) - failed_count
+    logger.info("Agent results: %d succeeded, %d failed, %d total artifacts", succeeded, failed_count, len(all_artifacts))
+
     if not all_artifacts:
+        logger.warning("All agents failed — 0 artifacts produced for query=%r", query)
         await ws_manager.send_event(project_id, "research_complete", {
             "summary": "No findings were generated.",
             "total_artifacts": 0,
@@ -105,6 +118,7 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
     # Step 3: Claude synthesizes findings into groups + connections
     artifact_dicts = [a.model_dump() for a in all_artifacts]
     synthesis = await claude_service.synthesize_research(query, artifact_dicts)
+    logger.info("Synthesis complete: %d groups, %d connections", len(synthesis.get("groups", [])), len(synthesis.get("connections", [])))
 
     # Compute layout
     all_artifacts, group_objects = compute_layout(all_artifacts, synthesis.get("groups", []))
@@ -147,6 +161,7 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
         await db.save_connections(connections)
         await db.save_groups(group_objects)
     except Exception as e:
+        logger.error("DB save failed for research project=%s: %s", project_id, e)
         await ws_manager.send_event(project_id, "error", {
             "message": f"Failed to save research: {str(e)}",
         })
@@ -170,26 +185,38 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
         "artifact": summary_artifact.model_dump(),
     })
 
-    # Step 5: Generate images for all artifacts in parallel
+    # Send research_complete immediately (before images)
+    logger.info("Research complete: %d total artifacts for project=%s", len(all_artifacts), project_id)
+    await ws_manager.send_event(project_id, "research_complete", {
+        "summary": synthesis.get("summary", ""),
+        "total_artifacts": len(all_artifacts),
+    })
+
+    # Step 5: Generate images as a fire-and-forget background task
+    logger.info("Image generation starting for %d artifacts", len(all_artifacts))
     await ws_manager.send_event(project_id, "images_generating", {
         "total": len(all_artifacts),
     })
 
     async def on_image_progress(artifact_id: str, success: bool, image_url: str | None):
         if success and image_url:
-            await db.update_artifact_image(artifact_id, image_url)
-            await ws_manager.send_event(project_id, "image_generated", {
-                "artifact_id": artifact_id,
-                "image_url": image_url,
-            })
+            saved = await db.update_artifact_image(artifact_id, image_url)
+            if saved:
+                await ws_manager.send_event(project_id, "image_generated", {
+                    "artifact_id": artifact_id,
+                    "image_url": image_url,
+                })
 
     artifact_dicts_for_images = [a.model_dump() for a in all_artifacts]
-    await image_service.generate_images_parallel(
-        artifact_dicts_for_images, query, on_progress=on_image_progress
-    )
 
-    # Final event
-    await ws_manager.send_event(project_id, "research_complete", {
-        "summary": synthesis.get("summary", ""),
-        "total_artifacts": len(all_artifacts),
-    })
+    async def _generate_images():
+        try:
+            await image_service.generate_images_parallel(
+                artifact_dicts_for_images, query, on_progress=on_image_progress
+            )
+        except Exception as e:
+            logger.error("Image generation failed: %s", e)
+        finally:
+            await ws_manager.send_event(project_id, "images_complete", {})
+
+    asyncio.create_task(_generate_images())

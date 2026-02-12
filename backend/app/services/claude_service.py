@@ -1,8 +1,13 @@
 """Claude Opus 4.6 streaming wrapper for research and planning."""
 
 import json
+import logging
+import re
+
 import anthropic
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_client() -> anthropic.Anthropic:
@@ -18,17 +23,13 @@ async def plan_research(query: str) -> list[dict]:
     client = get_client()
 
     response = client.messages.create(
-        model="claude-opus-4-6-20250219",
+        model="claude-opus-4-6",
         max_tokens=8000,
-        temperature=1,  # Required for extended thinking
-        thinking={
-            "type": "enabled",
-            "budget_tokens": 5000,
-        },
+        thinking={"type": "adaptive"},
         messages=[
             {
                 "role": "user",
-                "content": f"""You are a research planning assistant. Given a research query, generate 3-5 distinct research angles to investigate in parallel.
+                "content": f"""You are a research planning assistant. Given a research query, generate exactly 4 distinct research angles to investigate in parallel.
 
 Research query: "{query}"
 
@@ -49,27 +50,12 @@ Example output:
         ],
     )
 
-    # Extract text from response (may include thinking blocks)
-    text = ""
-    for block in response.content:
-        if block.type == "text":
-            text = block.text
-            break
+    text = _extract_text(response)
 
-    # Parse JSON
     try:
-        # Try to find JSON array in the response
-        text = text.strip()
-        if not text.startswith("["):
-            # Try to extract JSON from markdown code blocks
-            import re
-            match = re.search(r"\[[\s\S]*\]", text)
-            if match:
-                text = match.group(0)
-        angles = json.loads(text)
+        angles = _parse_json_array(text)
         return angles
     except (json.JSONDecodeError, AttributeError):
-        # Fallback: create a single angle from the original query
         return [
             {
                 "angle": "General Research",
@@ -79,16 +65,119 @@ Example output:
         ]
 
 
-async def summarize_findings(
-    query: str, angle: str, search_results: list[dict], page_contents: list[dict]
-) -> list[dict]:
-    """Use Claude to summarize research findings into structured artifacts.
+def _extract_text(response) -> str:
+    """Extract all text blocks from a Claude response (ignoring tool use blocks)."""
+    parts = []
+    for block in response.content:
+        if block.type == "text":
+            parts.append(block.text)
+    return "\n".join(parts)
 
-    Returns list of artifact dicts ready to be created.
+
+def _parse_json_array(text: str) -> list[dict]:
+    """Extract and parse a JSON array from text that may contain other content."""
+    text = text.strip()
+    if not text.startswith("["):
+        match = re.search(r"\[[\s\S]*\]", text)
+        if match:
+            text = match.group(0)
+    return json.loads(text)
+
+
+def _parse_json_object(text: str) -> dict:
+    """Extract and parse a JSON object from text that may contain other content."""
+    text = text.strip()
+    if not text.startswith("{"):
+        match = re.search(r"\{[\s\S]*\}", text)
+        if match:
+            text = match.group(0)
+    return json.loads(text)
+
+
+async def research_angle_with_search(sub_query: str, angle: str, focus: str) -> list[dict]:
+    """Use Claude with built-in web search to research an angle.
+
+    Claude searches the web, reads results, and synthesizes findings in a
+    single API call — no Brave API or custom fetching needed.
+
+    Returns list of finding dicts ready to be created as artifacts.
     """
     client = get_client()
 
-    # Build context from search results and page contents
+    tools = [
+        {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 4,
+        }
+    ]
+
+    messages = [
+        {
+            "role": "user",
+            "content": f"""You are a research analyst. Search the web to investigate the following research angle.
+
+Search query: "{sub_query}"
+Research angle: "{angle}"
+Focus: {focus}
+
+Instructions:
+1. Search the web for relevant, recent information
+2. Analyze the search results thoroughly
+3. Create 1-4 structured research findings based on what you discover
+
+Each finding must be a JSON object:
+{{
+  "type": "research_finding" or "competitor",
+  "title": "2-6 word title",
+  "content": "Detailed markdown content (2-4 paragraphs with specific facts, data, and insights)",
+  "summary": "1-2 sentence summary",
+  "source_url": "most relevant source URL from search results",
+  "importance": 0-100 score
+}}
+
+After searching and analyzing, return ONLY a JSON array of findings as your final output, no other text.""",
+        }
+    ]
+
+    # Handle pause_turn for long-running searches
+    max_continuations = 3
+    for _ in range(max_continuations + 1):
+        response = client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=8000,
+            tools=tools,
+            messages=messages,
+        )
+
+        if response.stop_reason == "pause_turn":
+            # Continue the turn — pass response back as assistant message
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": "Continue."})
+            continue
+        break
+
+    # Extract the final text (Claude's analysis after searching)
+    text = _extract_text(response)
+    logger.info("Research angle '%s' completed, extracting findings", angle)
+
+    try:
+        findings = _parse_json_array(text)
+        return findings
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        logger.warning("Failed to parse findings for angle '%s': %s", angle, text[:200])
+        return []
+
+
+async def summarize_findings(
+    query: str, angle: str, search_results: list[dict], page_contents: list[dict]
+) -> list[dict]:
+    """Legacy: Use Claude to summarize research findings into structured artifacts.
+
+    Kept for backward compatibility. New code uses research_angle_with_search().
+    """
+    client = get_client()
+
     context_parts = []
     for i, (sr, pc) in enumerate(zip(search_results, page_contents)):
         context_parts.append(
@@ -101,13 +190,9 @@ async def summarize_findings(
     context = "\n---\n".join(context_parts)
 
     response = client.messages.create(
-        model="claude-opus-4-6-20250219",
+        model="claude-opus-4-6",
         max_tokens=8000,
-        temperature=1,
-        thinking={
-            "type": "enabled",
-            "budget_tokens": 5000,
-        },
+        thinking={"type": "adaptive"},
         messages=[
             {
                 "role": "user",
@@ -134,20 +219,10 @@ Return ONLY a JSON array of findings, no other text.""",
         ],
     )
 
-    text = ""
-    for block in response.content:
-        if block.type == "text":
-            text = block.text
-            break
+    text = _extract_text(response)
 
     try:
-        text = text.strip()
-        if not text.startswith("["):
-            import re
-            match = re.search(r"\[[\s\S]*\]", text)
-            if match:
-                text = match.group(0)
-        findings = json.loads(text)
+        findings = _parse_json_array(text)
         return findings
     except (json.JSONDecodeError, AttributeError):
         return []
@@ -166,13 +241,9 @@ async def synthesize_research(query: str, artifacts: list[dict]) -> dict:
     )
 
     response = client.messages.create(
-        model="claude-opus-4-6-20250219",
+        model="claude-opus-4-6",
         max_tokens=8000,
-        temperature=1,
-        thinking={
-            "type": "enabled",
-            "budget_tokens": 5000,
-        },
+        thinking={"type": "adaptive"},
         messages=[
             {
                 "role": "user",
@@ -202,20 +273,10 @@ Return ONLY the JSON object, no other text.""",
         ],
     )
 
-    text = ""
-    for block in response.content:
-        if block.type == "text":
-            text = block.text
-            break
+    text = _extract_text(response)
 
     try:
-        text = text.strip()
-        if not text.startswith("{"):
-            import re
-            match = re.search(r"\{[\s\S]*\}", text)
-            if match:
-                text = match.group(0)
-        result = json.loads(text)
+        result = _parse_json_object(text)
         return result
     except (json.JSONDecodeError, AttributeError):
         return {"groups": [], "connections": [], "summary": "Research synthesis failed."}
@@ -238,13 +299,9 @@ async def generate_plan(
         )
 
     response = client.messages.create(
-        model="claude-opus-4-6-20250219",
+        model="claude-opus-4-6",
         max_tokens=12000,
-        temperature=1,
-        thinking={
-            "type": "enabled",
-            "budget_tokens": 8000,
-        },
+        thinking={"type": "adaptive"},
         messages=[
             {
                 "role": "user",
@@ -278,20 +335,57 @@ Return ONLY a JSON array of components, no other text.""",
         ],
     )
 
-    text = ""
-    for block in response.content:
-        if block.type == "text":
-            text = block.text
-            break
+    text = _extract_text(response)
 
     try:
-        text = text.strip()
-        if not text.startswith("["):
-            import re
-            match = re.search(r"\[[\s\S]*\]", text)
-            if match:
-                text = match.group(0)
-        components = json.loads(text)
+        components = _parse_json_array(text)
         return components
     except (json.JSONDecodeError, AttributeError):
         return []
+
+
+async def regenerate_artifact(artifact: dict, feedback_comments: list[str]) -> dict | None:
+    """Use Claude to regenerate an artifact based on feedback.
+
+    Returns updated artifact fields (title, content, summary) or None on failure.
+    """
+    client = get_client()
+
+    feedback_text = "\n".join(f"- {c}" for c in feedback_comments)
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=8000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a research/product analyst. An artifact needs to be improved based on feedback.
+
+Original artifact:
+- Type: {artifact.get('type', 'unknown')}
+- Title: {artifact.get('title', '')}
+- Content:
+{artifact.get('content', '')}
+
+Feedback to address:
+{feedback_text}
+
+Rewrite the artifact incorporating ALL the feedback. Return a JSON object with:
+{{
+  "title": "Updated title (keep similar style, 2-6 words)",
+  "content": "Updated detailed markdown content",
+  "summary": "Updated 1-2 sentence summary"
+}}
+
+Return ONLY the JSON object, no other text.""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        return _parse_json_object(text)
+    except (json.JSONDecodeError, AttributeError):
+        return None

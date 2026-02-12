@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from supabase import Client, create_client
@@ -11,11 +12,14 @@ from app.models.schema import (
     Project,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class SupabaseDB:
     def __init__(self):
         settings = get_settings()
         self._client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        logger.info("Supabase DB client initialized")
 
     # ── Project methods ──────────────────────────────────────────────
 
@@ -63,6 +67,7 @@ class SupabaseDB:
     async def save_artifacts(self, artifacts: list[Artifact]) -> list[Artifact]:
         if not artifacts:
             return []
+        logger.debug("save_artifacts: %d artifacts", len(artifacts))
         data = []
         for a in artifacts:
             d = a.model_dump()
@@ -71,10 +76,15 @@ class SupabaseDB:
         result = self._client.table("artifacts").insert(data).execute()
         return [Artifact(**row) for row in result.data]
 
-    async def update_artifact_image(self, artifact_id: str, image_url: str) -> None:
-        self._client.table("artifacts").update(
-            {"image_url": image_url}
-        ).eq("id", artifact_id).execute()
+    async def update_artifact_image(self, artifact_id: str, image_url: str) -> bool:
+        try:
+            self._client.table("artifacts").update(
+                {"image_url": image_url}
+            ).eq("id", artifact_id).execute()
+            return True
+        except Exception:
+            logger.error("Failed to update image for artifact=%s", artifact_id, exc_info=True)
+            return False
 
     # ── Connection methods ───────────────────────────────────────────
 
@@ -87,6 +97,7 @@ class SupabaseDB:
     ) -> list[ArtifactConnection]:
         if not connections:
             return []
+        logger.debug("save_connections: %d connections", len(connections))
         data = [c.model_dump() for c in connections]
         result = self._client.table("artifact_connections").insert(data).execute()
         return [ArtifactConnection(**row) for row in result.data]
@@ -109,6 +120,7 @@ class SupabaseDB:
     async def save_groups(self, groups: list[Group]) -> list[Group]:
         if not groups:
             return []
+        logger.debug("save_groups: %d groups", len(groups))
         data = [g.model_dump() for g in groups]
         result = self._client.table("groups").insert(data).execute()
         return [Group(**row) for row in result.data]
@@ -136,6 +148,11 @@ class SupabaseDB:
             query = query.eq("artifact_id", artifact_id)
         result = query.order("created_at").execute()
         return [Feedback(**row) for row in result.data]
+
+    async def mark_feedback_addressed(self, artifact_id: str) -> None:
+        self._client.table("feedback").update(
+            {"status": "addressed"}
+        ).eq("artifact_id", artifact_id).eq("status", "pending").execute()
 
 
 _db: SupabaseDB | None = None

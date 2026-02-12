@@ -44,7 +44,10 @@ export class ProjectWebSocket {
 
   disconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.ws?.close();
-    this.ws = null;
+    if (this.ws) {
+      this.ws.onclose = null; // prevent onclose from scheduling reconnect
+      this.ws.close();
+      this.ws = null;
+    }
   }
 }

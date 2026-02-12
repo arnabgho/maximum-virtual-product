@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket
@@ -8,12 +9,20 @@ from app.routers import artifacts, feedback, plan, projects, research, video
 from app.ws.handlers import handle_project_ws
 from app.ws.manager import get_ws_manager
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    settings = get_settings()
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)-8s [%(name)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    logger.info("MVP backend starting up")
     yield
-    # Shutdown
+    logger.info("MVP backend shutting down")
 
 
 app = FastAPI(title="Maximum Virtual Product", version="0.1.0", lifespan=lifespan)
