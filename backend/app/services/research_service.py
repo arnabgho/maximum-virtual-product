@@ -10,6 +10,7 @@ from app.models.schema import (
     generate_artifact_id,
 )
 from app.services import claude_service, image_service
+from app.services.dag_utils import remove_cycles
 from app.agents.research_agent import ResearchAgent
 from app.ws.manager import WSManager
 from app.db.supabase import get_db
@@ -20,37 +21,6 @@ GRID_COLS = 4
 CARD_WIDTH = 320
 CARD_HEIGHT = 240
 GAP = 40
-
-
-def _remove_cycles(connections_data: list[dict], artifact_ids: set[str]) -> list[dict]:
-    """Remove back-edges to enforce DAG constraint using DFS."""
-    from collections import defaultdict
-
-    adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for i, c in enumerate(connections_data):
-        src, dst = c.get("from_id", ""), c.get("to_id", "")
-        if src in artifact_ids and dst in artifact_ids:
-            adj[src].append((dst, i))
-
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {aid: WHITE for aid in artifact_ids}
-    back_edges: set[int] = set()
-
-    def dfs(node: str) -> None:
-        color[node] = GRAY
-        for neighbor, edge_idx in adj[node]:
-            if color[neighbor] == GRAY:
-                back_edges.add(edge_idx)
-                logger.warning("Cycle detected: removing edge %s → %s", node, neighbor)
-            elif color[neighbor] == WHITE:
-                dfs(neighbor)
-        color[node] = BLACK
-
-    for aid in artifact_ids:
-        if color[aid] == WHITE:
-            dfs(aid)
-
-    return [c for i, c in enumerate(connections_data) if i not in back_edges]
 
 
 def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[Artifact], list[Group]]:
@@ -157,7 +127,7 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
     # Create connections (enforce DAG — remove any cycles)
     artifact_ids = {a.id for a in all_artifacts}
     raw_connections = synthesis.get("connections", [])
-    dag_connections = _remove_cycles(raw_connections, artifact_ids)
+    dag_connections = remove_cycles(raw_connections, artifact_ids)
 
     connections = []
     for conn_data in dag_connections:

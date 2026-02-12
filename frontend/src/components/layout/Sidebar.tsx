@@ -39,7 +39,7 @@ export function Sidebar() {
           </p>
         )}
       </div>
-      {project.phase === "research" && phaseArtifacts.length > 0 && <VideoExport />}
+      {phaseArtifacts.length > 0 && <VideoExport phase={project.phase} />}
     </aside>
   );
 }

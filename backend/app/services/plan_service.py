@@ -4,6 +4,7 @@ import logging
 
 from app.models.schema import Artifact, ArtifactConnection, Group, generate_artifact_id
 from app.services import claude_service, image_service
+from app.services.dag_utils import remove_cycles
 from app.ws.manager import WSManager
 from app.db.supabase import get_db
 
@@ -38,17 +39,23 @@ async def run_plan(
         all_artifacts = await db.get_artifacts(project_id, phase="research")
         research_artifacts = [a.model_dump() for a in all_artifacts]
 
-    # Generate plan components
-    components = await claude_service.generate_plan(description, research_artifacts)
-    logger.info("Claude returned %d plan components", len(components))
+    # Generate plan components + connections
+    plan_result = await claude_service.generate_plan(description, research_artifacts)
+    components = plan_result.get("components", [])
+    raw_connections = plan_result.get("connections", [])
+    logger.info("Claude returned %d plan components, %d connections", len(components), len(raw_connections))
 
-    # Create artifact objects with layout
+    # Create artifact objects — positions set to 0; frontend dagre layout computes real positions
     plan_artifacts = []
-    for i, comp in enumerate(components):
-        col = i % GRID_COLS
-        row = i // GRID_COLS
+    temp_to_real: dict[str, str] = {}
+    for comp in components:
+        real_id = generate_artifact_id()
+        temp_id = comp.get("temp_id", "")
+        if temp_id:
+            temp_to_real[temp_id] = real_id
+
         artifact = Artifact(
-            id=generate_artifact_id(),
+            id=real_id,
             project_id=project_id,
             phase="plan",
             type=comp.get("type", "plan_component"),
@@ -57,8 +64,8 @@ async def run_plan(
             summary=comp.get("summary", ""),
             importance=comp.get("importance", 50),
             references=comp.get("references", []),
-            position_x=col * (CARD_WIDTH + GAP) + GAP,
-            position_y=row * (CARD_HEIGHT + GAP) + GAP,
+            position_x=0,
+            position_y=0,
         )
         plan_artifacts.append(artifact)
 
@@ -67,13 +74,52 @@ async def run_plan(
             "artifact": artifact.model_dump(),
         })
 
+    # Remap temp_ids to real artifact IDs in connections
+    remapped_connections = []
+    for conn_data in raw_connections:
+        from_id = temp_to_real.get(conn_data.get("from_id", ""), "")
+        to_id = temp_to_real.get(conn_data.get("to_id", ""), "")
+        if from_id and to_id:
+            remapped_connections.append({
+                "from_id": from_id,
+                "to_id": to_id,
+                "label": conn_data.get("label", ""),
+                "connection_type": conn_data.get("connection_type", "depends"),
+            })
+
+    # Enforce DAG — remove any cycles
+    artifact_ids = {a.id for a in plan_artifacts}
+    dag_connections_data = remove_cycles(remapped_connections, artifact_ids)
+
+    connections = []
+    for conn_data in dag_connections_data:
+        conn = ArtifactConnection(
+            project_id=project_id,
+            from_artifact_id=conn_data["from_id"],
+            to_artifact_id=conn_data["to_id"],
+            label=conn_data.get("label", ""),
+            connection_type=conn_data.get("connection_type", "depends"),
+        )
+        connections.append(conn)
+
     # Save to database
     try:
         await db.save_artifacts(plan_artifacts)
+        if connections:
+            await db.save_connections(connections)
     except Exception as e:
         logger.error("DB save failed for plan project=%s: %s", project_id, e)
         await ws_manager.send_event(project_id, "error", {
             "message": f"Failed to save plan: {str(e)}",
+        })
+
+    # Broadcast connections
+    for conn in connections:
+        await ws_manager.send_event(project_id, "connection_created", {
+            "from_artifact_id": conn.from_artifact_id,
+            "to_artifact_id": conn.to_artifact_id,
+            "label": conn.label,
+            "connection_type": conn.connection_type,
         })
 
     # Generate images for plan components (skip mermaid artifacts)

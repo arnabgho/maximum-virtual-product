@@ -291,10 +291,10 @@ Return ONLY the JSON object, no other text.""",
 
 async def generate_plan(
     description: str, research_artifacts: list[dict]
-) -> list[dict]:
-    """Use Claude to break down a project into plan components.
+) -> dict:
+    """Use Claude to break down a project into plan components with connections.
 
-    Returns list of plan artifact dicts.
+    Returns dict with "components" and "connections" keys.
     """
     client = get_client()
 
@@ -317,8 +317,9 @@ async def generate_plan(
 Project description: "{description}"
 {research_context}
 
-Create 4-6 plan components. Each should be a JSON object:
+Create 4-6 plan components. Each should be a JSON object with a temp_id for cross-referencing:
 {{
+  "temp_id": "comp_1",
   "type": "plan_component",
   "title": "2-6 word component title",
   "content": "Detailed markdown description (3-5 paragraphs) including: purpose, key features, technical approach, dependencies",
@@ -329,6 +330,7 @@ Create 4-6 plan components. Each should be a JSON object:
 
 Also include 1-2 "mermaid" type artifacts for architecture diagrams:
 {{
+  "temp_id": "comp_N",
   "type": "mermaid",
   "title": "Architecture Overview",
   "content": "graph TD\\n  A[Frontend] --> B[API]\\n  ...",
@@ -337,7 +339,26 @@ Also include 1-2 "mermaid" type artifacts for architecture diagrams:
   "references": []
 }}
 
-Return ONLY a JSON array of components, no other text.""",
+Also define DIRECTED connections between components forming a DAG (no cycles).
+Each connection flows from a foundational component to one that depends on it.
+{{
+  "from_id": "comp_1",
+  "to_id": "comp_3",
+  "label": "relationship description (2-5 words)",
+  "connection_type": "depends" or "references"
+}}
+
+Rules for connections:
+- from_id is the FOUNDATION, to_id DEPENDS ON or BUILDS UPON it
+- NO cycles (if A→B exists, no path from B back to A)
+- Aim for layers: some root components (no incoming), some leaves (no outgoing)
+- Every component should have at least one connection
+
+Return ONLY a JSON object with this structure, no other text:
+{{
+  "components": [ ... ],
+  "connections": [ ... ]
+}}""",
             }
         ],
     )
@@ -345,10 +366,20 @@ Return ONLY a JSON array of components, no other text.""",
     text = _extract_text(response)
 
     try:
-        components = _parse_json_array(text)
-        return components
+        result = _parse_json_object(text)
+        if "components" in result:
+            return result
+        # Shouldn't happen, but be defensive
+        return {"components": [], "connections": []}
     except (json.JSONDecodeError, AttributeError):
-        return []
+        pass
+
+    # Fallback: try parsing as array (old format)
+    try:
+        components = _parse_json_array(text)
+        return {"components": components, "connections": []}
+    except (json.JSONDecodeError, AttributeError):
+        return {"components": [], "connections": []}
 
 
 async def regenerate_artifact(artifact: dict, feedback_comments: list[str]) -> dict | None:

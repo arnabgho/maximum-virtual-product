@@ -19,28 +19,32 @@ TIMEOUT_SECONDS = 45
 
 PROMPT_TEMPLATES = {
     "research_finding": (
-        "Create an infographic visualizing: {title}. "
-        "Key findings: {summary}. "
-        "Style: clean data visualization on dark background (#1e1e2e). "
-        "Use bold colors, clear icons, and minimal text. No watermarks."
+        "Create a detailed illustration depicting the concept: {title}. "
+        "Key details to visually represent: {summary}. "
+        "Style: rich conceptual scene with visual metaphors, saturated colors, "
+        "and flowing compositions on a dark background (#1e1e2e). "
+        "IMPORTANT: Do NOT render any text, letters, numbers, words, or written labels in the image."
     ),
     "competitor": (
-        "Create a brand/product visual for: {title}. "
-        "{summary}. "
-        "Style: product showcase on dark background (#1e1e2e). "
-        "Clean, professional design. No watermarks."
+        "Create a detailed product illustration representing: {title}. "
+        "Visual context: {summary}. "
+        "Style: polished product concept art with clean gradients and a "
+        "professional aesthetic on a dark background (#1e1e2e). "
+        "IMPORTANT: Do NOT render any text, letters, numbers, words, or written labels in the image."
     ),
     "plan_component": (
-        "Create a blueprint/wireframe diagram for: {title}. "
-        "Component: {summary}. "
-        "Style: technical blueprint on dark background (#1e1e2e). "
-        "Use clean lines, geometric shapes. No watermarks."
+        "Create a detailed technical illustration showing: {title}. "
+        "What this component does: {summary}. "
+        "Style: node-and-connection aesthetics with glowing edges and "
+        "circuit-like compositions on a dark background (#1e1e2e). "
+        "IMPORTANT: Do NOT render any text, letters, numbers, words, or written labels in the image."
     ),
     "markdown": (
-        "Create a visual summary infographic for: {title}. "
-        "{summary}. "
-        "Style: clean, modern infographic on dark background (#1e1e2e). "
-        "No watermarks."
+        "Create a detailed conceptual illustration for: {title}. "
+        "Context: {summary}. "
+        "Style: rich visual storytelling with harmonious colors and "
+        "organic-meets-geometric compositions on a dark background (#1e1e2e). "
+        "IMPORTANT: Do NOT render any text, letters, numbers, words, or written labels in the image."
     ),
 }
 
