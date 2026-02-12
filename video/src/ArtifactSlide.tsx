@@ -1,8 +1,10 @@
 import { useCurrentFrame, interpolate, spring, useVideoConfig, Img } from "remotion";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 interface ArtifactSlideProps {
   title: string;
   content: string;
+  summary?: string;
   type: string;
   sourceUrl?: string;
   groupTitle?: string;
@@ -16,6 +18,7 @@ interface ArtifactSlideProps {
 export function ArtifactSlide({
   title,
   content,
+  summary,
   type,
   sourceUrl,
   groupTitle,
@@ -58,9 +61,11 @@ export function ArtifactSlide({
   );
 
   const isTitle = type === "title";
+  const isMermaid = type === "mermaid";
   const importanceColor =
     importance > 70 ? "#818cf8" : importance > 40 ? "#6366f1" : "#4f46e5";
-  const hasImage = imageUrl && !isTitle;
+  const hasImage = imageUrl && !isTitle && !isMermaid;
+  const displayText = isMermaid ? (summary || "") : (summary || content);
 
   return (
     <div
@@ -88,7 +93,7 @@ export function ArtifactSlide({
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          alignItems: hasImage ? "flex-start" : "center",
+          alignItems: hasImage ? "flex-start" : isMermaid ? "center" : "center",
           flex: hasImage ? "1 1 55%" : "1",
           maxWidth: hasImage ? "55%" : "100%",
         }}
@@ -180,35 +185,65 @@ export function ArtifactSlide({
         <div
           style={{
             opacity: titleOpacity,
-            fontSize: isTitle ? 72 : 52,
+            fontSize: isTitle ? 72 : isMermaid ? 40 : 52,
             fontWeight: 700,
             color: "#ffffff",
             textAlign: hasImage ? "left" : "center",
             maxWidth: "100%",
             lineHeight: 1.2,
-            marginBottom: 32,
+            marginBottom: isMermaid ? 12 : 32,
           }}
         >
           {title}
         </div>
 
-        {/* Content */}
-        <div
-          style={{
-            opacity: contentOpacity,
-            fontSize: isTitle ? 28 : 24,
-            color: "#a1a1aa",
-            textAlign: hasImage ? "left" : "center",
-            maxWidth: "100%",
-            lineHeight: 1.6,
-            display: "-webkit-box",
-            WebkitLineClamp: 6,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {content}
-        </div>
+        {/* Summary subtitle for mermaid slides */}
+        {isMermaid && displayText && (
+          <div
+            style={{
+              opacity: contentOpacity,
+              fontSize: 20,
+              color: "#a1a1aa",
+              textAlign: "center",
+              maxWidth: "100%",
+              lineHeight: 1.4,
+              marginBottom: 24,
+            }}
+          >
+            {displayText}
+          </div>
+        )}
+
+        {/* Mermaid diagram — full width */}
+        {isMermaid && (
+          <div style={{ width: "100%", maxHeight: 550, overflow: "hidden" }}>
+            <MermaidDiagram
+              content={content}
+              startFrame={startFrame}
+              duration={duration}
+            />
+          </div>
+        )}
+
+        {/* Content (non-mermaid) */}
+        {!isMermaid && (
+          <div
+            style={{
+              opacity: contentOpacity,
+              fontSize: isTitle ? 28 : 24,
+              color: "#a1a1aa",
+              textAlign: hasImage ? "left" : "center",
+              maxWidth: "100%",
+              lineHeight: 1.6,
+              display: "-webkit-box",
+              WebkitLineClamp: 6,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {displayText}
+          </div>
+        )}
 
         {/* Source URL */}
         {sourceUrl && (
