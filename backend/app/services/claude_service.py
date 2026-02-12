@@ -15,12 +15,125 @@ def get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
-async def plan_research(query: str) -> list[dict]:
+async def generate_clarifying_questions(query: str, description: str = "") -> list[dict]:
+    """Generate 2-3 clarifying questions with options for a research query.
+
+    Returns: [{question: str, options: [str, str, str, str]}, ...]
+    """
+    client = get_client()
+
+    description_block = ""
+    if description:
+        description_block = f'\nDescription of what the user wants to build: "{description}"\n'
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=4000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a research planning assistant. Given a topic and what the user wants to build, generate 2-3 clarifying questions that will help focus the research.
+
+Topic: "{query}"
+{description_block}
+Each question should help narrow the research scope. Provide 3-4 answer options per question.
+
+Return ONLY a JSON array, no other text:
+[
+  {{"question": "What is your primary goal?", "options": ["Market analysis", "Build a product", "Academic research", "Personal learning"]}},
+  {{"question": "What's your target audience?", "options": ["Consumers", "Businesses", "Developers", "Enterprise"]}}
+]""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        questions = _parse_json_array(text)
+        return questions
+    except (json.JSONDecodeError, AttributeError):
+        return [
+            {
+                "question": "What is your primary goal with this research?",
+                "options": ["Market analysis", "Build a product", "Academic research", "General exploration"],
+            }
+        ]
+
+
+async def suggest_plan_directions(query: str, context: dict, artifacts: list[dict]) -> list[dict]:
+    """Suggest 2-3 plan directions based on research findings.
+
+    Returns: [{title: str, description: str, key_focus: str}, ...]
+    """
+    client = get_client()
+
+    context_str = ""
+    if context:
+        context_str = "\n\nUser context:\n" + "\n".join(
+            f"- {k}: {v}" for k, v in context.items()
+        )
+
+    artifact_summaries = "\n".join(
+        f"- [{a.get('type', '')}] {a.get('title', '')}: {a.get('summary', '')}"
+        for a in artifacts[:20]
+    )
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=4000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a product strategist. Based on the research findings below, suggest 2-3 distinct plan directions the user could pursue.
+
+Original topic: "{query}"
+{context_str}
+
+Research findings:
+{artifact_summaries}
+
+Each direction should be a different strategic approach. Return ONLY a JSON array:
+[
+  {{
+    "title": "Short direction title (3-6 words)",
+    "description": "2-3 sentence description of this direction and what it would involve",
+    "key_focus": "The primary focus area in 5-10 words"
+  }}
+]""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        directions = _parse_json_array(text)
+        return directions
+    except (json.JSONDecodeError, AttributeError):
+        return [
+            {
+                "title": "Comprehensive Product Blueprint",
+                "description": f"Build a full product plan based on the research findings for: {query}",
+                "key_focus": "End-to-end product development plan",
+            }
+        ]
+
+
+async def plan_research(query: str, context: dict | None = None) -> list[dict]:
     """Use Claude to plan research angles for a query.
 
     Returns a list of dicts: [{angle: str, sub_query: str, focus: str}, ...]
     """
     client = get_client()
+
+    context_str = ""
+    if context:
+        context_str = "\n\nAdditional context from the user:\n" + "\n".join(
+            f"- {k}: {v}" for k, v in context.items()
+        )
 
     response = client.messages.create(
         model="claude-opus-4-6",
@@ -32,6 +145,7 @@ async def plan_research(query: str) -> list[dict]:
                 "content": f"""You are a research planning assistant. Given a research query, generate exactly 4 distinct research angles to investigate in parallel.
 
 Research query: "{query}"
+{context_str}
 
 Return a JSON array of research angles. Each angle should have:
 - "angle": A short label for this research direction (2-5 words)
