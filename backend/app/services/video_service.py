@@ -19,24 +19,25 @@ VIDEO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file_
 REMOTION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "video")
 
 
-async def generate_video(project_id: str) -> str:
-    """Trigger video generation for a project's research artifacts.
+async def generate_video(project_id: str, phase: str = "research") -> str:
+    """Trigger video generation for a project's artifacts.
 
     Returns a job_id for tracking status.
     """
     job_id = str(uuid.uuid4())
     _video_jobs[job_id] = {
         "project_id": project_id,
+        "phase": phase,
         "status": "rendering",
         "url": None,
     }
 
     # Run rendering in background
-    asyncio.create_task(_render_video(job_id, project_id))
+    asyncio.create_task(_render_video(job_id, project_id, phase))
     return job_id
 
 
-async def _render_video(job_id: str, project_id: str) -> None:
+async def _render_video(job_id: str, project_id: str, phase: str = "research") -> None:
     """Fetch data, compute topological order, render via Remotion."""
     try:
         db = get_db()
@@ -46,12 +47,12 @@ async def _render_video(job_id: str, project_id: str) -> None:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        artifacts = await db.get_artifacts(project_id, phase="research")
+        artifacts = await db.get_artifacts(project_id, phase=phase)
         connections = await db.get_connections(project_id)
-        groups = await db.get_groups(project_id, phase="research")
+        groups = await db.get_groups(project_id, phase=phase)
 
         if not artifacts:
-            raise ValueError("No research artifacts to render")
+            raise ValueError(f"No {phase} artifacts to render")
 
         # Build group title lookup
         group_map = {g.id: g.title for g in groups}
@@ -94,17 +95,20 @@ async def _render_video(job_id: str, project_id: str) -> None:
                 "breadcrumbs": parent_map.get(a.id, []),
             })
 
-        # Find summary artifact for narrative
+        # Find narrative based on phase
         narrative = ""
-        for a in artifacts:
-            if a.type == "markdown" and a.title == "Research Summary":
-                narrative = a.content
-                break
+        if phase == "plan":
+            narrative = getattr(project, "description", "") or ""
+        else:
+            for a in artifacts:
+                if a.type == "markdown" and a.title == "Research Summary":
+                    narrative = a.content
+                    break
 
         props = {
             "artifacts": ordered_artifacts,
             "projectTitle": project.title,
-            "narrative": narrative or f"Research findings for: {project.title}",
+            "narrative": narrative or f"{phase.title()} findings for: {project.title}",
             "connections": conn_dicts,
         }
 
@@ -172,9 +176,11 @@ async def _render_video(job_id: str, project_id: str) -> None:
         _video_jobs[job_id]["status"] = "error"
 
 
-async def get_video_status(project_id: str) -> dict:
+async def get_video_status(project_id: str, phase: str | None = None) -> dict:
     """Get the latest video generation status for a project."""
     for job_id, job in reversed(list(_video_jobs.items())):
         if job["project_id"] == project_id:
+            if phase and job.get("phase") != phase:
+                continue
             return {"status": job["status"], "url": job.get("url"), "job_id": job_id}
     return {"status": "none", "url": None, "job_id": None}

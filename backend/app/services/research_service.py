@@ -10,6 +10,7 @@ from app.models.schema import (
     generate_artifact_id,
 )
 from app.services import claude_service, image_service
+from app.services.dag_utils import remove_cycles
 from app.agents.research_agent import ResearchAgent
 from app.ws.manager import WSManager
 from app.db.supabase import get_db
@@ -20,37 +21,6 @@ GRID_COLS = 4
 CARD_WIDTH = 320
 CARD_HEIGHT = 240
 GAP = 40
-
-
-def _remove_cycles(connections_data: list[dict], artifact_ids: set[str]) -> list[dict]:
-    """Remove back-edges to enforce DAG constraint using DFS."""
-    from collections import defaultdict
-
-    adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for i, c in enumerate(connections_data):
-        src, dst = c.get("from_id", ""), c.get("to_id", "")
-        if src in artifact_ids and dst in artifact_ids:
-            adj[src].append((dst, i))
-
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {aid: WHITE for aid in artifact_ids}
-    back_edges: set[int] = set()
-
-    def dfs(node: str) -> None:
-        color[node] = GRAY
-        for neighbor, edge_idx in adj[node]:
-            if color[neighbor] == GRAY:
-                back_edges.add(edge_idx)
-                logger.warning("Cycle detected: removing edge %s → %s", node, neighbor)
-            elif color[neighbor] == WHITE:
-                dfs(neighbor)
-        color[node] = BLACK
-
-    for aid in artifact_ids:
-        if color[aid] == WHITE:
-            dfs(aid)
-
-    return [c for i, c in enumerate(connections_data) if i not in back_edges]
 
 
 def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[Artifact], list[Group]]:
@@ -107,14 +77,14 @@ def compute_layout(artifacts: list[Artifact], groups: list[dict]) -> tuple[list[
     return artifacts, group_objects
 
 
-async def run_research(project_id: str, query: str, ws_manager: WSManager):
-    """Run the full research pipeline: plan -> parallel agents -> synthesize."""
+async def run_research(project_id: str, query: str, ws_manager: WSManager, *, context: dict | None = None):
+    """Run the full research pipeline: plan -> parallel agents -> synthesize -> suggest directions."""
     db = get_db()
 
-    logger.info("Research started for project=%s query=%r", project_id, query)
+    logger.info("Research started for project=%s query=%r context=%r", project_id, query, context)
 
-    # Step 1: Claude plans research angles
-    angles = await claude_service.plan_research(query)
+    # Step 1: Claude plans research angles (enriched with user context)
+    angles = await claude_service.plan_research(query, context=context)
     logger.info("Planned %d research angles", len(angles))
 
     # Step 2: Run sub-agents in parallel
@@ -157,7 +127,7 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
     # Create connections (enforce DAG — remove any cycles)
     artifact_ids = {a.id for a in all_artifacts}
     raw_connections = synthesis.get("connections", [])
-    dag_connections = _remove_cycles(raw_connections, artifact_ids)
+    dag_connections = remove_cycles(raw_connections, artifact_ids)
 
     connections = []
     for conn_data in dag_connections:
@@ -207,8 +177,10 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
 
     for conn in connections:
         await ws_manager.send_event(project_id, "connection_created", {
-            "from_id": conn.from_artifact_id,
-            "to_id": conn.to_artifact_id,
+            "id": conn.id,
+            "project_id": conn.project_id,
+            "from_artifact_id": conn.from_artifact_id,
+            "to_artifact_id": conn.to_artifact_id,
             "label": conn.label,
             "connection_type": conn.connection_type,
         })
@@ -224,6 +196,18 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
         "summary": synthesis.get("summary", ""),
         "total_artifacts": len(all_artifacts),
     })
+
+    # Step 4b: Generate plan directions from research findings
+    try:
+        directions = await claude_service.suggest_plan_directions(
+            query, context or {}, artifact_dicts
+        )
+        logger.info("Generated %d plan directions for project=%s", len(directions), project_id)
+        await ws_manager.send_event(project_id, "plan_directions_ready", {
+            "directions": directions,
+        })
+    except Exception as e:
+        logger.error("Plan direction generation failed: %s", e)
 
     # Step 5: Generate images as a fire-and-forget background task
     logger.info("Image generation starting for %d artifacts", len(all_artifacts))

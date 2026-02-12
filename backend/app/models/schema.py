@@ -104,8 +104,14 @@ class FeedbackCreate(BaseModel):
     author: str = ""
 
 
+class ClarifyQuery(BaseModel):
+    query: str
+    description: str = ""
+
+
 class ResearchQuery(BaseModel):
     query: str
+    context: dict = Field(default_factory=dict)
 
 
 class PlanQuery(BaseModel):

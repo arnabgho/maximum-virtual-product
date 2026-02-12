@@ -33,6 +33,8 @@ async def start_plan(project_id: str, data: PlanQuery):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    await db.update_project(project_id, {"description": data.description})
+
     ws_manager = get_ws_manager()
 
     # Run plan in background task

@@ -7,6 +7,8 @@ import type {
   Feedback,
   AgentStatus,
   Phase,
+  ClarifyingQuestion,
+  PlanDirection,
 } from "../types";
 import { api } from "../api/client";
 
@@ -26,6 +28,9 @@ interface ProjectStore {
   planDescription: string;
   imageGenerationProgress: { total: number; completed: number } | null;
   isRegenerating: string | null; // artifact ID being regenerated
+  clarifyingQuestions: ClarifyingQuestion[];
+  planDirections: PlanDirection[];
+  researchContext: Record<string, string>;
 
   // Actions
   listProjects: () => Promise<void>;
@@ -49,6 +54,9 @@ interface ProjectStore {
   setImageGenerationProgress: (total: number | null) => void;
   incrementImageGeneration: () => void;
   setRegenerating: (artifactId: string | null) => void;
+  setClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
+  setPlanDirections: (directions: PlanDirection[]) => void;
+  setResearchContext: (context: Record<string, string>) => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -71,6 +79,9 @@ const initialState = {
   planDescription: "",
   imageGenerationProgress: null as { total: number; completed: number } | null,
   isRegenerating: null as string | null,
+  clarifyingQuestions: [] as ClarifyingQuestion[],
+  planDirections: [] as PlanDirection[],
+  researchContext: {} as Record<string, string>,
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -189,6 +200,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         : null,
     })),
   setRegenerating: (artifactId) => set({ isRegenerating: artifactId }),
+  setClarifyingQuestions: (questions) => set({ clarifyingQuestions: questions }),
+  setPlanDirections: (directions) => set({ planDirections: directions }),
+  setResearchContext: (context) => set({ researchContext: context }),
 
   reset: () => set(initialState),
 

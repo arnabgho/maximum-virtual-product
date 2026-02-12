@@ -1,6 +1,6 @@
 import { PhaseNav } from "./PhaseNav";
 import { Sidebar } from "./Sidebar";
-import { StatusBar } from "./StatusBar";
+import { FloatingProgress } from "./FloatingProgress";
 import { ProjectCanvas } from "../canvas/ProjectCanvas";
 import { ArtifactDetail } from "../artifacts/ArtifactDetail";
 import { useProjectStore } from "../../stores/projectStore";
@@ -17,10 +17,10 @@ export function AppShell() {
         <Sidebar />
         <main className="flex-1 relative">
           <ProjectCanvas />
-          <StatusBar />
         </main>
       </div>
       <ArtifactDetail />
+      <FloatingProgress />
     </div>
   );
 }

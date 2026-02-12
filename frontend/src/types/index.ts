@@ -60,6 +60,17 @@ export interface Group {
   height: number;
 }
 
+export interface ClarifyingQuestion {
+  question: string;
+  options: string[];
+}
+
+export interface PlanDirection {
+  title: string;
+  description: string;
+  key_focus: string;
+}
+
 export interface Feedback {
   id: string;
   artifact_id: string;
@@ -86,6 +97,7 @@ export type WSEventType =
   | "image_generated"
   | "artifact_updated"
   | "feedback_addressed"
+  | "plan_directions_ready"
   | "error";
 
 export interface WSEvent {

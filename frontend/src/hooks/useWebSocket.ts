@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ProjectWebSocket } from "../api/websocket";
 import { useProjectStore } from "../stores/projectStore";
-import type { Artifact, ArtifactConnection, Group, AgentStatus } from "../types";
+import type { Artifact, ArtifactConnection, Group, AgentStatus, PlanDirection } from "../types";
 
 export function useWebSocket(projectId: string | null) {
   const wsRef = useRef<ProjectWebSocket | null>(null);
@@ -79,6 +79,10 @@ export function useWebSocket(projectId: string | null) {
 
         case "research_complete":
           store.setResearching(false);
+          break;
+
+        case "plan_directions_ready":
+          store.setPlanDirections(event.data.directions as unknown as PlanDirection[]);
           break;
 
         case "images_complete":

@@ -1,6 +1,6 @@
 import { useProjectStore } from "../../stores/projectStore";
 import { ResearchInput } from "../research/ResearchInput";
-import { PlanInput } from "../plan/PlanInput";
+import { PlanDirections } from "../plan/PlanDirections";
 import { VideoExport } from "../research/VideoExport";
 
 export function Sidebar() {
@@ -12,7 +12,7 @@ export function Sidebar() {
   return (
     <aside className="w-72 border-r border-[#3a3a4e] bg-[#1a1a2e] flex flex-col">
       <div className="p-3 border-b border-[#3a3a4e]">
-        {project.phase === "research" ? <ResearchInput /> : <PlanInput />}
+        {project.phase === "research" ? <ResearchInput /> : <PlanDirections />}
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2 mb-2">
@@ -39,7 +39,7 @@ export function Sidebar() {
           </p>
         )}
       </div>
-      {project.phase === "research" && phaseArtifacts.length > 0 && <VideoExport />}
+      {phaseArtifacts.length > 0 && <VideoExport phase={project.phase} />}
     </aside>
   );
 }

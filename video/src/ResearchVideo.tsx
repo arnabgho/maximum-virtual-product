@@ -74,7 +74,8 @@ function ResearchVideoComposition({ artifacts, projectTitle, narrative, connecti
             />
             <ArtifactSlide
               title={artifact.title}
-              content={artifact.summary || artifact.content}
+              content={artifact.content}
+              summary={artifact.summary}
               type={artifact.type}
               sourceUrl={artifact.source_url}
               groupTitle={artifact.group_title}

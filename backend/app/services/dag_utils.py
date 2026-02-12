@@ -1,6 +1,38 @@
 """DAG utilities: cycle detection and topological sort."""
 
+import logging
 from collections import defaultdict, deque
+
+logger = logging.getLogger(__name__)
+
+
+def remove_cycles(connections_data: list[dict], artifact_ids: set[str]) -> list[dict]:
+    """Remove back-edges to enforce DAG constraint using DFS."""
+    adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for i, c in enumerate(connections_data):
+        src, dst = c.get("from_id", ""), c.get("to_id", "")
+        if src in artifact_ids and dst in artifact_ids:
+            adj[src].append((dst, i))
+
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {aid: WHITE for aid in artifact_ids}
+    back_edges: set[int] = set()
+
+    def dfs(node: str) -> None:
+        color[node] = GRAY
+        for neighbor, edge_idx in adj[node]:
+            if color[neighbor] == GRAY:
+                back_edges.add(edge_idx)
+                logger.warning("Cycle detected: removing edge %s → %s", node, neighbor)
+            elif color[neighbor] == WHITE:
+                dfs(neighbor)
+        color[node] = BLACK
+
+    for aid in artifact_ids:
+        if color[aid] == WHITE:
+            dfs(aid)
+
+    return [c for i, c in enumerate(connections_data) if i not in back_edges]
 
 
 def topological_sort_layers(
