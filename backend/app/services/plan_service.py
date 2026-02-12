@@ -76,10 +76,11 @@ async def run_plan(
             "message": f"Failed to save plan: {str(e)}",
         })
 
-    # Generate images for plan components
-    logger.info("Image generation starting for %d plan artifacts", len(plan_artifacts))
+    # Generate images for plan components (skip mermaid artifacts)
+    imageable = [a for a in plan_artifacts if a.type != "mermaid"]
+    logger.info("Image generation starting for %d plan artifacts (skipping %d mermaid)", len(imageable), len(plan_artifacts) - len(imageable))
     await ws_manager.send_event(project_id, "images_generating", {
-        "total": len(plan_artifacts),
+        "total": len(imageable),
     })
 
     async def on_image_progress(artifact_id: str, success: bool, image_url: str | None):
@@ -91,7 +92,7 @@ async def run_plan(
                     "image_url": image_url,
                 })
 
-    artifact_dicts_for_images = [a.model_dump() for a in plan_artifacts]
+    artifact_dicts_for_images = [a.model_dump() for a in imageable]
     await image_service.generate_images_parallel(
         artifact_dicts_for_images, description, on_progress=on_image_progress
     )

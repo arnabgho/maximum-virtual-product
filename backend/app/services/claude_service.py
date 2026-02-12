@@ -310,7 +310,7 @@ async def generate_plan(
 Project description: "{description}"
 {research_context}
 
-Create 5-12 plan components. Each should be a JSON object:
+Create 4-6 plan components. Each should be a JSON object:
 {{
   "type": "plan_component",
   "title": "2-6 word component title",

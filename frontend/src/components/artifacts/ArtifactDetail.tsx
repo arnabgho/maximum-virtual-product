@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
 import { ArtifactIdBadge } from "./ArtifactIdBadge";
 import { MarkdownContent } from "./MarkdownContent";
+import { MermaidContent } from "./MermaidContent";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
 
 export function ArtifactDetail() {
@@ -55,7 +56,11 @@ export function ArtifactDetail() {
         </>
       )}
       <div className="p-4 flex-1">
-        <MarkdownContent content={artifact.content} />
+        {artifact.type === "mermaid" ? (
+          <MermaidContent content={artifact.content} />
+        ) : (
+          <MarkdownContent content={artifact.content} />
+        )}
       </div>
       {artifact.references.length > 0 && (
         <div className="px-4 py-2 border-t border-[#3a3a4e]">
