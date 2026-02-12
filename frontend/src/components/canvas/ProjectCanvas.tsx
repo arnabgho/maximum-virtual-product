@@ -1,71 +1,137 @@
-import { useCallback, useEffect, useRef } from "react";
-import { Tldraw, Editor, TLComponents } from "tldraw";
-import "tldraw/tldraw.css";
-import { ArtifactShapeUtil } from "./shapes/ArtifactShapeUtil";
-import { GroupShapeUtil } from "./shapes/GroupShapeUtil";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  useReactFlow,
+  type Node,
+  type Edge,
+  type NodeTypes,
+  type EdgeTypes,
+  type NodeMouseHandler,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import "./reactflow.css";
+
+import { ArtifactNode } from "./nodes/ArtifactNode";
+import { GroupNode } from "./nodes/GroupNode";
+import { ConnectionEdge } from "./edges/ConnectionEdge";
 import { useProjectStore } from "../../stores/projectStore";
-import { syncCanvasState, zoomToFit } from "./utils/canvasOperations";
+import { buildNodes, buildEdges } from "./utils/flowTransforms";
 
-const customShapeUtils = [ArtifactShapeUtil, GroupShapeUtil];
-
-// Hide default tldraw UI elements we don't need
-const components: TLComponents = {
-  ContextMenu: null,
-  ActionsMenu: null,
-  HelpMenu: null,
-  MainMenu: null,
-  PageMenu: null,
-  DebugMenu: null,
-  DebugPanel: null,
+const nodeTypes: NodeTypes = {
+  artifact: ArtifactNode,
+  group: GroupNode,
 };
 
-export function ProjectCanvas() {
-  const editorRef = useRef<Editor | null>(null);
+const edgeTypes: EdgeTypes = {
+  connection: ConnectionEdge,
+};
+
+function ProjectCanvasInner() {
   const { project, artifacts, groups, connections } = useProjectStore();
+  const setSelectedArtifact = useProjectStore((s) => s.setSelectedArtifact);
+  const updateArtifactPosition = useProjectStore(
+    (s) => s.updateArtifactPosition
+  );
 
-  const phaseArtifacts = artifacts.filter((a) => a.phase === project?.phase);
-  const phaseGroups = groups.filter((g) => g.phase === project?.phase);
+  const phaseArtifacts = useMemo(
+    () => artifacts.filter((a) => a.phase === project?.phase),
+    [artifacts, project?.phase]
+  );
+  const phaseGroups = useMemo(
+    () => groups.filter((g) => g.phase === project?.phase),
+    [groups, project?.phase]
+  );
+  const phaseConnections = useMemo(
+    () =>
+      connections.filter((c) => {
+        const ids = new Set(phaseArtifacts.map((a) => a.id));
+        return ids.has(c.from_artifact_id) && ids.has(c.to_artifact_id);
+      }),
+    [connections, phaseArtifacts]
+  );
 
-  // Sync canvas when data changes
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges] = useEdgesState<Edge>([]);
+  const { fitView } = useReactFlow();
+
+  // Track previous artifact count to detect new arrivals for fitView
+  const prevCountRef = useRef(0);
+
+  // Sync store → React Flow nodes
   useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor || !project) return;
+    setNodes(buildNodes(phaseArtifacts, phaseGroups));
+  }, [phaseArtifacts, phaseGroups, setNodes]);
 
-    syncCanvasState(editor, phaseArtifacts, phaseGroups, connections);
+  // Sync store → React Flow edges
+  useEffect(() => {
+    setEdges(buildEdges(phaseConnections, phaseArtifacts));
+  }, [phaseConnections, phaseArtifacts, setEdges]);
 
-    // Zoom to fit if we have content
-    if (phaseArtifacts.length > 0) {
-      // Small delay to let shapes render
-      setTimeout(() => zoomToFit(editor), 100);
+  // fitView when new artifacts arrive
+  useEffect(() => {
+    const count = phaseArtifacts.length;
+    if (count > 0 && count !== prevCountRef.current) {
+      prevCountRef.current = count;
+      // Small delay to let nodes render before fitting
+      const t = setTimeout(() => fitView({ padding: 0.1, duration: 300 }), 50);
+      return () => clearTimeout(t);
     }
-  }, [phaseArtifacts.length, phaseGroups.length, connections.length, project?.phase]);
+  }, [phaseArtifacts.length, fitView]);
 
-  const handleMount = useCallback(
-    (editor: Editor) => {
-      editorRef.current = editor;
-
-      // Set dark theme
-      editor.user.updateUserPreferences({ colorScheme: "dark" });
-
-      // Sync initial state
-      if (project) {
-        syncCanvasState(editor, phaseArtifacts, phaseGroups, connections);
-        if (phaseArtifacts.length > 0) {
-          setTimeout(() => zoomToFit(editor), 200);
-        }
+  const onNodeDragStop: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (node.type === "artifact") {
+        const artifactId = node.id.replace("artifact_", "");
+        updateArtifactPosition(artifactId, node.position.x, node.position.y);
       }
     },
-    [project?.id, project?.phase]
+    [updateArtifactPosition]
   );
+
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (node.type === "artifact") {
+        const artifactId = node.id.replace("artifact_", "");
+        setSelectedArtifact(artifactId);
+      }
+    },
+    [setSelectedArtifact]
+  );
+
+  const onPaneClick = useCallback(() => {
+    setSelectedArtifact(null);
+  }, [setSelectedArtifact]);
 
   return (
     <div className="w-full h-full" style={{ background: "#0f0f1a" }}>
-      <Tldraw
-        shapeUtils={customShapeUtils}
-        components={components}
-        onMount={handleMount}
-        inferDarkMode
-      />
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeDragStop={onNodeDragStop}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        nodesConnectable={false}
+        fitView
+        fitViewOptions={{ padding: 0.1 }}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Controls showInteractive={false} />
+      </ReactFlow>
     </div>
+  );
+}
+
+export function ProjectCanvas() {
+  return (
+    <ReactFlowProvider>
+      <ProjectCanvasInner />
+    </ReactFlowProvider>
   );
 }
