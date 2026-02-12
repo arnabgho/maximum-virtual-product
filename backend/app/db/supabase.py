@@ -19,6 +19,13 @@ class SupabaseDB:
     def __init__(self):
         settings = get_settings()
         self._client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        # Service-role client for storage operations (bypasses RLS)
+        if settings.SUPABASE_SERVICE_ROLE_KEY:
+            self._storage_client: Client = create_client(
+                settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY
+            )
+        else:
+            self._storage_client = self._client
         logger.info("Supabase DB client initialized")
 
     # ── Project methods ──────────────────────────────────────────────
@@ -161,6 +168,33 @@ class SupabaseDB:
         self._client.table("feedback").update(
             {"status": "addressed"}
         ).eq("artifact_id", artifact_id).eq("status", "pending").execute()
+
+    # ── Storage methods ───────────────────────────────────────────
+
+    def ensure_video_bucket(self) -> None:
+        """Create the 'videos' storage bucket if it doesn't exist."""
+        try:
+            self._storage_client.storage.create_bucket(
+                "videos",
+                options={"public": True, "allowed_mime_types": ["video/mp4"]},
+            )
+            logger.info("Created 'videos' storage bucket")
+        except Exception as e:
+            msg = str(e).lower()
+            if "already exists" in msg or "duplicate" in msg:
+                logger.debug("Videos bucket already exists")
+            else:
+                raise
+
+    def upload_video(self, file_path: str, destination: str) -> str:
+        """Upload an MP4 to the 'videos' bucket, return its public URL."""
+        bucket = self._storage_client.storage.from_("videos")
+        bucket.upload(
+            path=destination,
+            file=file_path,
+            file_options={"content-type": "video/mp4", "upsert": "true"},
+        )
+        return bucket.get_public_url(destination)
 
 
 _db: SupabaseDB | None = None
