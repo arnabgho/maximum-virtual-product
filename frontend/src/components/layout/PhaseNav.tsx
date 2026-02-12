@@ -2,7 +2,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import type { Phase } from "../../types";
 
 export function PhaseNav() {
-  const { project, setPhase, artifacts } = useProjectStore();
+  const { project, setPhase, artifacts, reset } = useProjectStore();
   if (!project) return null;
 
   const researchCount = artifacts.filter((a) => a.phase === "research").length;
@@ -15,6 +15,15 @@ export function PhaseNav() {
 
   return (
     <header className="h-12 border-b border-[#3a3a4e] bg-[#1e1e2e] flex items-center px-4 gap-4">
+      <button
+        onClick={() => reset()}
+        className="text-zinc-400 hover:text-white transition-colors"
+        title="Back to projects"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
       <span className="text-sm font-semibold text-white mr-4">{project.title}</span>
       <nav className="flex gap-1">
         {phases.map((p) => (

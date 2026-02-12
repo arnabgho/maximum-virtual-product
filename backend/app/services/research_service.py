@@ -177,8 +177,10 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager):
 
     for conn in connections:
         await ws_manager.send_event(project_id, "connection_created", {
-            "from_id": conn.from_artifact_id,
-            "to_id": conn.to_artifact_id,
+            "id": conn.id,
+            "project_id": conn.project_id,
+            "from_artifact_id": conn.from_artifact_id,
+            "to_artifact_id": conn.to_artifact_id,
             "label": conn.label,
             "connection_type": conn.connection_type,
         })
