@@ -22,35 +22,41 @@ PROMPT_TEMPLATES = {
         "Create an infographic visualizing: {title}. "
         "Key findings: {summary}. "
         "Style: clean data visualization on dark background (#1e1e2e). "
-        "Use bold colors, clear icons, and minimal text. No watermarks."
+        "Use bold colors, clear icons, and minimal text. No watermarks. {design_context}"
     ),
     "competitor": (
         "Create a brand/product visual for: {title}. "
         "{summary}. "
         "Style: product showcase on dark background (#1e1e2e). "
-        "Clean, professional design. No watermarks."
+        "Clean, professional design. No watermarks. {design_context}"
     ),
     "plan_component": (
         "Create a blueprint/wireframe diagram for: {title}. "
         "Component: {summary}. "
         "Style: technical blueprint on dark background (#1e1e2e). "
-        "Use clean lines, geometric shapes. No watermarks."
+        "Use clean lines, geometric shapes. No watermarks. {design_context}"
+    ),
+    "ui_screen": (
+        "Create a high-fidelity UI mockup for: {title}. "
+        "Screen purpose: {summary}. {design_context} "
+        "Style: modern app UI screenshot, realistic interface, clean layout, readable text placeholders. No watermarks."
     ),
     "markdown": (
         "Create a visual summary infographic for: {title}. "
         "{summary}. "
         "Style: clean, modern infographic on dark background (#1e1e2e). "
-        "No watermarks."
+        "No watermarks. {design_context}"
     ),
 }
 
 
-def _get_prompt(artifact: dict) -> str:
+def _get_prompt(artifact: dict, design_context: str = "") -> str:
     artifact_type = artifact.get("type", "markdown")
     template = PROMPT_TEMPLATES.get(artifact_type, PROMPT_TEMPLATES["markdown"])
     return template.format(
         title=artifact.get("title", ""),
         summary=artifact.get("summary", artifact.get("content", "")[:200]),
+        design_context=design_context,
     )
 
 
@@ -61,12 +67,12 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
-async def generate_artifact_image(artifact: dict, context: str) -> str | None:
+async def generate_artifact_image(artifact: dict, context: str, design_context: str = "") -> str | None:
     """Generate an image for a single artifact using Gemini.
 
     Returns a public Supabase Storage URL or None on failure.
     """
-    prompt = _get_prompt(artifact)
+    prompt = _get_prompt(artifact, design_context=design_context)
     client = _get_client()
     artifact_id = artifact.get("id", "unknown")
     project_id = artifact.get("project_id", "unknown")
@@ -130,6 +136,7 @@ async def generate_images_parallel(
     artifacts: list[dict],
     context: str,
     on_progress: ProgressCallback | None = None,
+    design_context: str = "",
 ) -> dict[str, str]:
     """Generate images for all artifacts concurrently.
 
@@ -142,7 +149,7 @@ async def generate_images_parallel(
 
     async def _generate_one(artifact: dict) -> tuple[str, str | None]:
         artifact_id = artifact.get("id", "")
-        image_url = await generate_artifact_image(artifact, context)
+        image_url = await generate_artifact_image(artifact, context, design_context=design_context)
         if on_progress:
             await on_progress(artifact_id, image_url is not None, image_url)
         return artifact_id, image_url

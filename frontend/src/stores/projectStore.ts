@@ -32,6 +32,10 @@ interface ProjectStore {
   planDirections: PlanDirection[];
   researchContext: Record<string, string>;
   researchDirections: { angle: string; sub_query: string }[];
+  planClarifyingQuestions: ClarifyingQuestion[];
+  planContext: Record<string, string>;
+  selectedDirection: PlanDirection | null;
+  planClarifyLoading: boolean;
 
   // Actions
   listProjects: () => Promise<void>;
@@ -60,6 +64,10 @@ interface ProjectStore {
   updateProjectTitle: (id: string, title: string) => Promise<void>;
   setResearchContext: (context: Record<string, string>) => void;
   setResearchDirections: (directions: { angle: string; sub_query: string }[]) => void;
+  setPlanClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
+  setPlanContext: (context: Record<string, string>) => void;
+  setSelectedDirection: (direction: PlanDirection | null) => void;
+  setPlanClarifyLoading: (v: boolean) => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -86,6 +94,10 @@ const initialState = {
   planDirections: [] as PlanDirection[],
   researchContext: {} as Record<string, string>,
   researchDirections: [] as { angle: string; sub_query: string }[],
+  planClarifyingQuestions: [] as ClarifyingQuestion[],
+  planContext: {} as Record<string, string>,
+  selectedDirection: null as PlanDirection | null,
+  planClarifyLoading: false,
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -219,6 +231,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
   setResearchContext: (context) => set({ researchContext: context }),
   setResearchDirections: (directions) => set({ researchDirections: directions }),
+  setPlanClarifyingQuestions: (questions) => set({ planClarifyingQuestions: questions }),
+  setPlanContext: (context) => set({ planContext: context }),
+  setSelectedDirection: (direction) => set({ selectedDirection: direction }),
+  setPlanClarifyLoading: (v) => set({ planClarifyLoading: v }),
 
   reset: () => set(initialState),
 

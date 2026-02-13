@@ -115,6 +115,11 @@ class ResearchQuery(BaseModel):
     context: dict = Field(default_factory=dict)
 
 
+class PlanClarifyQuery(BaseModel):
+    direction: dict = Field(default_factory=dict)
+
+
 class PlanQuery(BaseModel):
     description: str
     reference_artifact_ids: list[str] = Field(default_factory=list)
+    context: dict = Field(default_factory=dict)

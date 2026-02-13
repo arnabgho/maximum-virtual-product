@@ -1,11 +1,24 @@
 import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
 import { planApi } from "../../api/plan";
+import { ClarifyingQuestions } from "../home/ClarifyingQuestions";
 import type { PlanDirection } from "../../types";
 
 export function PlanDirections() {
-  const { project, isPlanning, planDescription, planDirections, artifacts, setPlanning } =
-    useProjectStore();
+  const {
+    project,
+    isPlanning,
+    planDescription,
+    planDirections,
+    artifacts,
+    setPlanning,
+    planClarifyingQuestions,
+    setPlanClarifyingQuestions,
+    selectedDirection,
+    setSelectedDirection,
+    planClarifyLoading,
+    setPlanClarifyLoading,
+  } = useProjectStore();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [customDescription, setCustomDescription] = useState("");
   const [useCustom, setUseCustom] = useState(false);
@@ -15,13 +28,65 @@ export function PlanDirections() {
     .filter((a) => a.phase === "research")
     .map((a) => a.id);
 
-  const handleBuild = async (direction: PlanDirection) => {
-    if (!project || loading) return;
-    const description = `${direction.title}: ${direction.description}\n\nKey focus: ${direction.key_focus}`;
-    setLoading(true);
-    setPlanning(true, direction.title);
+  const handleSelectDirection = async (direction: PlanDirection) => {
+    if (!project || planClarifyLoading) return;
+    setPlanClarifyLoading(true);
+    setSelectedDirection(direction);
     try {
-      await planApi.start(project.id, description, researchArtifactIds);
+      const result = await planApi.clarify(project.id, direction);
+      setPlanClarifyingQuestions(result.questions || []);
+    } catch (e) {
+      console.error("Clarify failed:", e);
+      // Fallback: start plan directly without clarifying questions
+      const description = `${direction.title}: ${direction.description}\n\nKey focus: ${direction.key_focus}`;
+      setPlanning(true, direction.title);
+      try {
+        await planApi.start(project.id, description, researchArtifactIds);
+      } catch (err) {
+        console.error("Plan failed:", err);
+        setPlanning(false);
+      }
+    } finally {
+      setPlanClarifyLoading(false);
+    }
+  };
+
+  const handleSelectCustom = async () => {
+    if (!project || !customDescription.trim() || planClarifyLoading) return;
+    setPlanClarifyLoading(true);
+    const customDir: PlanDirection = {
+      title: customDescription.trim().slice(0, 60),
+      description: customDescription.trim(),
+      key_focus: "",
+    };
+    setSelectedDirection(customDir);
+    try {
+      const result = await planApi.clarify(project.id, customDir);
+      setPlanClarifyingQuestions(result.questions || []);
+    } catch (e) {
+      console.error("Clarify failed:", e);
+      // Fallback: start plan directly
+      setPlanning(true, customDescription.trim());
+      try {
+        await planApi.start(project.id, customDescription.trim(), researchArtifactIds);
+      } catch (err) {
+        console.error("Plan failed:", err);
+        setPlanning(false);
+      }
+    } finally {
+      setPlanClarifyLoading(false);
+    }
+  };
+
+  const handleClarifySubmit = async (answers: Record<string, string>) => {
+    if (!project || !selectedDirection) return;
+    const description = selectedDirection.key_focus
+      ? `${selectedDirection.title}: ${selectedDirection.description}\n\nKey focus: ${selectedDirection.key_focus}`
+      : selectedDirection.description;
+    setLoading(true);
+    setPlanning(true, selectedDirection.title);
+    try {
+      await planApi.start(project.id, description, researchArtifactIds, answers);
     } catch (e) {
       console.error("Plan failed:", e);
       setPlanning(false);
@@ -30,19 +95,25 @@ export function PlanDirections() {
     }
   };
 
-  const handleCustomBuild = async () => {
-    if (!project || !customDescription.trim() || loading) return;
-    setLoading(true);
-    setPlanning(true, customDescription.trim());
-    try {
-      await planApi.start(project.id, customDescription.trim(), researchArtifactIds);
-    } catch (e) {
-      console.error("Plan failed:", e);
-      setPlanning(false);
-    } finally {
-      setLoading(false);
-    }
+  const handleClarifyBack = () => {
+    setPlanClarifyingQuestions([]);
+    setSelectedDirection(null);
   };
+
+  // Show clarifying questions wizard
+  if (planClarifyingQuestions.length > 0 && selectedDirection && !isPlanning) {
+    return (
+      <ClarifyingQuestions
+        topic={selectedDirection.title}
+        questions={planClarifyingQuestions}
+        loading={loading}
+        onSubmit={handleClarifySubmit}
+        onBack={handleClarifyBack}
+        submitLabel="Generate Blueprint"
+        badgeLabel="Planning"
+      />
+    );
+  }
 
   if (isPlanning) {
     return (
@@ -90,11 +161,11 @@ export function PlanDirections() {
             className="hud-input rounded-lg text-sm resize-none"
           />
           <button
-            onClick={handleCustomBuild}
-            disabled={!customDescription.trim() || loading}
+            onClick={handleSelectCustom}
+            disabled={!customDescription.trim() || planClarifyLoading}
             className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full mt-2 py-2"
           >
-            Generate Blueprint
+            {planClarifyLoading ? "Loading questions..." : "Generate Blueprint"}
           </button>
         </div>
       </div>
@@ -130,11 +201,11 @@ export function PlanDirections() {
 
       {selectedIdx !== null && !useCustom && planDirections[selectedIdx] && (
         <button
-          onClick={() => handleBuild(planDirections[selectedIdx]!)}
-          disabled={loading}
+          onClick={() => handleSelectDirection(planDirections[selectedIdx]!)}
+          disabled={planClarifyLoading}
           className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
         >
-          {loading ? "Starting..." : "Build This Plan"}
+          {planClarifyLoading ? "Loading questions..." : "Build This Plan"}
         </button>
       )}
 
@@ -159,11 +230,11 @@ export function PlanDirections() {
               autoFocus
             />
             <button
-              onClick={handleCustomBuild}
-              disabled={!customDescription.trim() || loading}
+              onClick={handleSelectCustom}
+              disabled={!customDescription.trim() || planClarifyLoading}
               className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
             >
-              {loading ? "Starting..." : "Generate Blueprint"}
+              {planClarifyLoading ? "Loading questions..." : "Generate Blueprint"}
             </button>
           </div>
         )}

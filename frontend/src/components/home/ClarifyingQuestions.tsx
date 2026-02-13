@@ -8,11 +8,13 @@ interface Props {
   loading: boolean;
   onSubmit: (answers: Record<string, string>) => void;
   onBack: () => void;
+  submitLabel?: string;
+  badgeLabel?: string;
 }
 
 const ease = [0.25, 0.46, 0.45, 0.94] as const;
 
-export function ClarifyingQuestions({ topic, questions, loading, onSubmit, onBack }: Props) {
+export function ClarifyingQuestions({ topic, questions, loading, onSubmit, onBack, submitLabel = "Deploy Research", badgeLabel = "Scanning" }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showOther, setShowOther] = useState<Record<string, boolean>>({});
@@ -92,7 +94,7 @@ export function ClarifyingQuestions({ topic, questions, loading, onSubmit, onBac
       {/* Topic badge */}
       <div className="inline-flex items-center gap-2 badge-cyan rounded px-3 py-1.5 font-mono-hud text-[10px] uppercase tracking-wider">
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-cyan)] pulse-dot" />
-        <span>Scanning</span>
+        <span>{badgeLabel}</span>
         <span className="text-[var(--text-primary)] truncate max-w-[200px] normal-case tracking-normal">{topic}</span>
       </div>
 
@@ -261,7 +263,7 @@ export function ClarifyingQuestions({ topic, questions, loading, onSubmit, onBac
           </>
         ) : isLastStep ? (
           <>
-            Deploy Research
+            {submitLabel}
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
               <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

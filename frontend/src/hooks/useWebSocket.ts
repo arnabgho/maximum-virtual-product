@@ -95,6 +95,9 @@ export function useWebSocket(projectId: string | null) {
 
         case "plan_complete":
           store.setPlanning(false);
+          store.setPlanClarifyingQuestions([]);
+          store.setSelectedDirection(null);
+          store.setPlanContext({});
           break;
 
         case "error":
