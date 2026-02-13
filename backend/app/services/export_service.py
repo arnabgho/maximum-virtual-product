@@ -57,6 +57,8 @@ async def export_project_markdown(project_id: str) -> str:
                     sections.append(f"{art.summary}\n")
                 if art.source_url:
                     sections.append(f"Source: {art.source_url}\n")
+                if art.image_url:
+                    sections.append(f"![{art.title}]({art.image_url})\n")
 
     # --- Architecture (mermaid diagrams) ---
     mermaid_artifacts = [a for a in plan_artifacts if a.type == "mermaid"]
@@ -65,6 +67,8 @@ async def export_project_markdown(project_id: str) -> str:
         for art in mermaid_artifacts:
             sections.append(f"### {art.title}\n")
             sections.append(f"```mermaid\n{art.content}\n```\n")
+            if art.image_url:
+                sections.append(f"![{art.title}]({art.image_url})\n")
 
     # --- Plan components ---
     non_mermaid_plan = [a for a in plan_artifacts if a.type != "mermaid"]
@@ -92,6 +96,8 @@ async def export_project_markdown(project_id: str) -> str:
                 sections.append(f"**Importance:** {art.importance}/100\n")
                 if art.content:
                     sections.append(f"{art.content}\n")
+                if art.image_url:
+                    sections.append(f"![{art.title}]({art.image_url})\n")
 
         # --- Implementation checklist ---
         sections.append("## Implementation Checklist\n")

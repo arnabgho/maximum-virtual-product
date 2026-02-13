@@ -186,6 +186,35 @@ class SupabaseDB:
             else:
                 raise
 
+    def ensure_images_bucket(self) -> None:
+        """Create the 'images' storage bucket if it doesn't exist."""
+        try:
+            self._storage_client.storage.create_bucket(
+                "images",
+                options={
+                    "public": True,
+                    "allowed_mime_types": ["image/jpeg", "image/png", "image/webp"],
+                },
+            )
+            logger.info("Created 'images' storage bucket")
+        except Exception as e:
+            msg = str(e).lower()
+            if "already exists" in msg or "duplicate" in msg:
+                logger.debug("Images bucket already exists")
+            else:
+                raise
+
+    def upload_image(self, image_bytes: bytes, destination: str, content_type: str = "image/jpeg") -> str:
+        """Upload image bytes to the 'images' bucket, return its public URL."""
+        self.ensure_images_bucket()
+        bucket = self._storage_client.storage.from_("images")
+        bucket.upload(
+            path=destination,
+            file=image_bytes,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+        return bucket.get_public_url(destination)
+
     def upload_video(self, file_path: str, destination: str) -> str:
         """Upload an MP4 to the 'videos' bucket, return its public URL."""
         bucket = self._storage_client.storage.from_("videos")
