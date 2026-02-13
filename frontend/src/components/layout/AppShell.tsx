@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import { PhaseNav } from "./PhaseNav";
 import { Sidebar } from "./Sidebar";
 import { FloatingProgress } from "./FloatingProgress";
@@ -6,11 +7,12 @@ import { ProjectCanvas } from "../canvas/ProjectCanvas";
 import { ArtifactDetail } from "../artifacts/ArtifactDetail";
 import { PlanWizardModal } from "../plan/PlanWizardModal";
 import { ResearchWizardModal } from "../research/ResearchWizardModal";
+import { ReviewMode } from "../review/ReviewMode";
 import { useProjectStore } from "../../stores/projectStore";
 import { useWebSocket } from "../../hooks/useWebSocket";
 
 export function AppShell() {
-  const { project, artifacts, showPlanWizard, setShowPlanWizard } = useProjectStore();
+  const { project, artifacts, showPlanWizard, setShowPlanWizard, reviewMode } = useProjectStore();
   useWebSocket(project?.id ?? null);
 
   // Auto-open plan wizard when entering plan phase with no plan artifacts
@@ -39,6 +41,7 @@ export function AppShell() {
       <FloatingProgress />
       {showPlanWizard && <PlanWizardModal />}
       <ResearchWizardModal />
+      <AnimatePresence>{reviewMode && <ReviewMode />}</AnimatePresence>
     </div>
   );
 }

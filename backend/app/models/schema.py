@@ -94,6 +94,7 @@ class Feedback(BaseModel):
     source: str = "human"  # "human" or "ai"
     author: str = ""
     comment: str
+    bounds: dict | None = None
     status: str = "pending"  # "pending" or "addressed"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -103,6 +104,7 @@ class FeedbackCreate(BaseModel):
     comment: str
     source: str = "human"
     author: str = ""
+    bounds: dict | None = None
 
 
 class ClarifyQuery(BaseModel):

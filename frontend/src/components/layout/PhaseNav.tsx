@@ -3,8 +3,14 @@ import { useProjectStore } from "../../stores/projectStore";
 import { exportApi } from "../../api/export";
 import type { Phase } from "../../types";
 
+const AnnotateIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+  </svg>
+);
+
 export function PhaseNav() {
-  const { project, setPhase, artifacts, isResearching, planDirections, reset, updateProjectTitle } = useProjectStore();
+  const { project, setPhase, artifacts, isResearching, planDirections, reset, updateProjectTitle, setReviewMode } = useProjectStore();
   const [exporting, setExporting] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -122,7 +128,17 @@ export function PhaseNav() {
           );
         })}
       </nav>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-1">
+        {project.phase === "plan" && planCount > 0 && (
+          <button
+            onClick={() => setReviewMode(true)}
+            className="px-3 py-1.5 rounded text-xs font-mono-hud font-medium text-[var(--text-secondary)] hover:text-[var(--accent-cyan)] hover:bg-[var(--bg-elevated)] transition-all flex items-center gap-1.5 uppercase tracking-wider"
+            title="Review plan artifacts"
+          >
+            <AnnotateIcon />
+            Review
+          </button>
+        )}
         <button
           onClick={async () => {
             setExporting(true);

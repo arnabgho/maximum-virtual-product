@@ -732,14 +732,36 @@ Return ONLY a JSON object with this structure, no other text:
         return {"components": [], "connections": []}
 
 
-async def regenerate_artifact(artifact: dict, feedback_comments: list[str]) -> dict | None:
+async def regenerate_artifact(artifact: dict, feedback_items: list[dict]) -> dict | None:
     """Use Claude to regenerate an artifact based on feedback.
+
+    Args:
+        artifact: The artifact dict to regenerate.
+        feedback_items: List of dicts with 'comment' (str) and optional 'bounds' (dict with x,y,w,h as 0-1 fractions).
 
     Returns updated artifact fields (title, content, summary) or None on failure.
     """
     client = get_client()
 
-    feedback_text = "\n".join(f"- {c}" for c in feedback_comments)
+    feedback_lines = []
+    for i, item in enumerate(feedback_items, 1):
+        line = f"- Feedback #{i}: {item['comment']}"
+        if item.get('bounds'):
+            b = item['bounds']
+            cx, cy = b['x'] + b['w'] / 2, b['y'] + b['h'] / 2
+            h_pos = "left" if cx < 0.33 else "center" if cx < 0.67 else "right"
+            v_pos = "top" if cy < 0.33 else "middle" if cy < 0.67 else "bottom"
+            line += f" [Refers to the {v_pos}-{h_pos} area of the visual]"
+        feedback_lines.append(line)
+    feedback_text = "\n".join(feedback_lines)
+
+    artifact_type = artifact.get('type', 'unknown')
+    type_instruction = ""
+    if artifact_type == "mermaid":
+        type_instruction = (
+            "\n\nIMPORTANT: This is a mermaid diagram artifact. The 'content' field contains mermaid syntax. "
+            "You MUST update the mermaid syntax in 'content' to reflect the feedback — this is the ONLY way to change the visual diagram."
+        )
 
     response = client.messages.create(
         model="claude-opus-4-6",
@@ -751,7 +773,7 @@ async def regenerate_artifact(artifact: dict, feedback_comments: list[str]) -> d
                 "content": f"""You are a research/product analyst. An artifact needs to be improved based on feedback.
 
 Original artifact:
-- Type: {artifact.get('type', 'unknown')}
+- Type: {artifact_type}
 - Title: {artifact.get('title', '')}
 - Content:
 {artifact.get('content', '')}
@@ -759,10 +781,12 @@ Original artifact:
 Feedback to address:
 {feedback_text}
 
-Rewrite the artifact incorporating ALL the feedback. Return a JSON object with:
+Rewrite the artifact incorporating ALL the feedback. Update the written content so it matches the visual changes implied by the feedback.{type_instruction}
+
+Return a JSON object with:
 {{
   "title": "Updated title (keep similar style, 2-6 words)",
-  "content": "Updated detailed markdown content",
+  "content": "Updated detailed markdown/mermaid content reflecting all feedback",
   "summary": "Updated 1-2 sentence summary"
 }}
 

@@ -7,7 +7,7 @@ import { MermaidContent } from "./MermaidContent";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
 
 export function ArtifactDetail() {
-  const { selectedArtifactId, artifacts, setSelectedArtifact } =
+  const { selectedArtifactId, artifacts, setSelectedArtifact, setReviewMode, setReviewArtifactIndex } =
     useProjectStore();
   const [imageExpanded, setImageExpanded] = useState(false);
   const artifact = artifacts.find((a) => a.id === selectedArtifactId);
@@ -52,8 +52,27 @@ export function ArtifactDetail() {
                 <h2 className="text-xl font-semibold text-white">
                   {artifact.title}
                 </h2>
-                <div className="mt-1">
+                <div className="mt-1 flex items-center gap-2">
                   <ArtifactIdBadge id={artifact.id} />
+                  {artifact.phase === "plan" &&
+                    (artifact.image_url || artifact.type === "mermaid") && (
+                      <button
+                        onClick={() => {
+                          const planArtifacts = artifacts.filter(
+                            (a) => a.phase === "plan"
+                          );
+                          const idx = planArtifacts.findIndex(
+                            (a) => a.id === artifact.id
+                          );
+                          setSelectedArtifact(null);
+                          setReviewArtifactIndex(idx >= 0 ? idx : 0);
+                          setReviewMode(true);
+                        }}
+                        className="text-[10px] text-[var(--accent-cyan)] hover:underline font-mono-hud"
+                      >
+                        Annotate
+                      </button>
+                    )}
                 </div>
               </div>
               <button

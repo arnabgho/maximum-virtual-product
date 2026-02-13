@@ -30,6 +30,14 @@ interface ProjectStore {
   planDescription: string;
   imageGenerationProgress: { total: number; completed: number } | null;
   isRegenerating: string | null; // artifact ID being regenerated
+  reviewMode: boolean;
+  reviewArtifactIndex: number;
+  batchRegenerateProgress: {
+    total: number;
+    completed: number;
+    currentArtifactId: string | null;
+    failed: number;
+  } | null;
   clarifyingQuestions: ClarifyingQuestion[];
   planDirections: PlanDirection[];
   researchContext: Record<string, string>;
@@ -66,6 +74,17 @@ interface ProjectStore {
   setImageGenerationProgress: (total: number | null) => void;
   incrementImageGeneration: () => void;
   setRegenerating: (artifactId: string | null) => void;
+  setReviewMode: (v: boolean) => void;
+  setReviewArtifactIndex: (i: number) => void;
+  setBatchRegenerateProgress: (
+    progress: {
+      total: number;
+      completed: number;
+      currentArtifactId: string | null;
+      failed: number;
+    } | null
+  ) => void;
+  incrementBatchRegenerate: (artifactId: string, status: "complete" | "failed") => void;
   setClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
   setPlanDirections: (directions: PlanDirection[]) => void;
   updateProjectTitle: (id: string, title: string) => Promise<void>;
@@ -106,6 +125,14 @@ const initialState = {
   planDescription: "",
   imageGenerationProgress: null as { total: number; completed: number } | null,
   isRegenerating: null as string | null,
+  reviewMode: false,
+  reviewArtifactIndex: 0,
+  batchRegenerateProgress: null as {
+    total: number;
+    completed: number;
+    currentArtifactId: string | null;
+    failed: number;
+  } | null,
   clarifyingQuestions: [] as ClarifyingQuestion[],
   planDirections: [] as PlanDirection[],
   researchContext: {} as Record<string, string>,
@@ -241,6 +268,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         : null,
     })),
   setRegenerating: (artifactId) => set({ isRegenerating: artifactId }),
+  setReviewMode: (v) => set({ reviewMode: v, ...(v ? {} : { reviewArtifactIndex: 0 }) }),
+  setReviewArtifactIndex: (i) => {
+    const { artifacts, project } = get();
+    if (!project) return;
+    const planArtifacts = artifacts.filter((a) => a.phase === "plan");
+    const clamped = Math.max(0, Math.min(i, planArtifacts.length - 1));
+    set({ reviewArtifactIndex: clamped });
+  },
+  setBatchRegenerateProgress: (progress) => set({ batchRegenerateProgress: progress }),
+  incrementBatchRegenerate: (artifactId, status) =>
+    set((s) => ({
+      batchRegenerateProgress: s.batchRegenerateProgress
+        ? {
+            ...s.batchRegenerateProgress,
+            completed: s.batchRegenerateProgress.completed + 1,
+            currentArtifactId: artifactId,
+            failed:
+              s.batchRegenerateProgress.failed + (status === "failed" ? 1 : 0),
+          }
+        : null,
+    })),
   setClarifyingQuestions: (questions) => set({ clarifyingQuestions: questions }),
   setPlanDirections: (directions) => set({ planDirections: directions }),
   updateProjectTitle: async (id, title) => {
