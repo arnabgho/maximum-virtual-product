@@ -112,6 +112,10 @@ export function useWebSocket(projectId: string | null) {
 
         case "research_complete":
           store.setResearching(false);
+          // Re-fetch project to ensure canvas is in sync
+          if (projectId) {
+            setTimeout(() => store.loadProject(projectId), 500);
+          }
           break;
 
         case "plan_directions_ready":
@@ -126,6 +130,10 @@ export function useWebSocket(projectId: string | null) {
 
         case "images_complete":
           store.setImageGenerationProgress(null);
+          // Re-fetch to pick up any images that arrived out of order
+          if (projectId) {
+            setTimeout(() => store.loadProject(projectId), 500);
+          }
           break;
 
         case "design_image_ready":
