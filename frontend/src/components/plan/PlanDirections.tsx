@@ -47,22 +47,22 @@ export function PlanDirections() {
   if (isPlanning) {
     return (
       <div className="space-y-3">
-        <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 p-4">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 animate-pulse" />
+        <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-[var(--accent-cyan)]/10 to-[var(--accent-green)]/10 border border-[var(--accent-cyan)]/20 p-4">
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-cyan)]/5 to-[var(--accent-green)]/5 animate-pulse" />
           <div className="relative flex items-center gap-3">
             <div className="flex-shrink-0">
-              <svg className="w-5 h-5 text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[var(--accent-cyan)] animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-emerald-300">Generating Blueprint</p>
+              <p className="text-xs font-medium text-[var(--accent-cyan)] font-mono-hud uppercase tracking-wider">Generating Blueprint</p>
               <p className="text-sm text-white truncate">{planDescription}</p>
             </div>
           </div>
-          <div className="mt-3 h-1 rounded-full bg-emerald-950 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full animate-[progress_2s_ease-in-out_infinite]" style={{ width: "60%" }} />
+          <div className="mt-3 h-1 rounded-full bg-[var(--bg-deep)] overflow-hidden">
+            <div className="h-full rounded-full animate-[progress_2s_ease-in-out_infinite]" style={{ width: "60%", background: "linear-gradient(90deg, #00e5ff, #7c3aed)" }} />
           </div>
         </div>
       </div>
@@ -81,18 +81,18 @@ export function PlanDirections() {
           Generating plan directions...
         </div>
         {/* Fallback: allow custom description */}
-        <div className="mt-4 pt-4 border-t border-[#3a3a4e]">
+        <div className="mt-4 pt-4 border-t border-[var(--border-dim)]">
           <textarea
             value={customDescription}
             onChange={(e) => setCustomDescription(e.target.value)}
             placeholder="Or write your own plan description..."
             rows={3}
-            className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#3a3a4e] rounded text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 resize-none"
+            className="hud-input rounded-lg text-sm resize-none"
           />
           <button
             onClick={handleCustomBuild}
             disabled={!customDescription.trim() || loading}
-            className="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+            className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full mt-2 py-2"
           >
             Generate Blueprint
           </button>
@@ -103,7 +103,7 @@ export function PlanDirections() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+      <p className="text-xs font-semibold text-[var(--text-muted)] font-mono-hud uppercase tracking-wider">
         Suggested Directions
       </p>
 
@@ -115,11 +115,11 @@ export function PlanDirections() {
             onClick={() => { setSelectedIdx(i); setUseCustom(false); }}
             className={`w-full text-left p-3 rounded-lg border transition-colors ${
               selected
-                ? "bg-emerald-600/15 border-emerald-500/50"
-                : "bg-[#1e1e2e] border-[#3a3a4e] hover:border-zinc-500"
+                ? "bg-[var(--accent-cyan)]/5 border-[var(--accent-cyan)]/30"
+                : "bg-[var(--bg-surface)] border-[var(--border-dim)] hover:border-[var(--accent-cyan)]/30"
             }`}
           >
-            <p className={`text-sm font-medium ${selected ? "text-emerald-300" : "text-white"}`}>
+            <p className={`text-sm font-medium ${selected ? "text-[var(--accent-cyan)]" : "text-white"}`}>
               {dir.title}
             </p>
             <p className="text-xs text-zinc-400 mt-1">{dir.description}</p>
@@ -132,18 +132,18 @@ export function PlanDirections() {
         <button
           onClick={() => handleBuild(planDirections[selectedIdx]!)}
           disabled={loading}
-          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+          className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
         >
           {loading ? "Starting..." : "Build This Plan"}
         </button>
       )}
 
       {/* Custom option */}
-      <div className="pt-3 border-t border-[#3a3a4e]">
+      <div className="pt-3 border-t border-[var(--border-dim)]">
         <button
           onClick={() => { setUseCustom(true); setSelectedIdx(null); }}
-          className={`text-xs font-medium transition-colors ${
-            useCustom ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300"
+          className={`text-xs font-medium font-mono-hud transition-colors ${
+            useCustom ? "text-[var(--accent-cyan)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
           }`}
         >
           Write your own direction
@@ -155,13 +155,13 @@ export function PlanDirections() {
               onChange={(e) => setCustomDescription(e.target.value)}
               placeholder="Describe your product or project..."
               rows={3}
-              className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#3a3a4e] rounded text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 resize-none"
+              className="hud-input rounded-lg text-sm resize-none"
               autoFocus
             />
             <button
               onClick={handleCustomBuild}
               disabled={!customDescription.trim() || loading}
-              className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+              className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
             >
               {loading ? "Starting..." : "Generate Blueprint"}
             </button>

@@ -1,6 +1,6 @@
-/* Dark theme overrides for React Flow */
+/* Dark HUD theme overrides for React Flow */
 .react-flow {
-  background: #0f0f1a;
+  background: var(--bg-deep);
 }
 
 /* Remove default node styling so custom nodes control their own appearance */
@@ -16,26 +16,27 @@
 
 /* Controls panel */
 .react-flow__controls {
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .react-flow__controls-button {
-  background: #1e1e2e;
-  border-color: #3a3a4e;
-  fill: #a1a1aa;
+  background: var(--bg-surface);
+  border-color: var(--border-dim);
+  fill: var(--text-secondary);
 }
 
 .react-flow__controls-button:hover {
-  background: #2a2a3e;
+  background: var(--bg-elevated);
+  fill: var(--accent-cyan);
 }
 
 /* Minimap */
 .react-flow__minimap {
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
   border-radius: 8px;
 }
 

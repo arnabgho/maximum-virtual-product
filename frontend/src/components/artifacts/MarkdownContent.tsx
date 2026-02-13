@@ -5,7 +5,7 @@ import type { Components } from "react-markdown";
 const components: Components = {
   pre({ children }) {
     return (
-      <pre className="overflow-x-auto rounded-lg border border-white/10 bg-[#0f0f1a] p-4">
+      <pre className="overflow-x-auto rounded-lg border border-white/10 bg-[var(--bg-deep)] p-4">
         {children}
       </pre>
     );
@@ -29,7 +29,7 @@ const components: Components = {
     }
     return (
       <code
-        className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[0.875em]"
+        className="rounded border border-[var(--border-dim)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[0.875em]"
         {...props}
       >
         {children}

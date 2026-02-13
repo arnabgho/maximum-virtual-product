@@ -15,10 +15,10 @@ def get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
-async def generate_clarifying_questions(query: str, description: str = "") -> list[dict]:
-    """Generate 2-3 clarifying questions with options for a research query.
+async def generate_clarifying_questions(query: str, description: str = "") -> dict:
+    """Generate 2-3 clarifying questions with options and a suggested project name.
 
-    Returns: [{question: str, options: [str, str, str, str]}, ...]
+    Returns: {questions: [{question, options}], suggested_name: str}
     """
     client = get_client()
 
@@ -39,11 +39,16 @@ Topic: "{query}"
 {description_block}
 Each question should help narrow the research scope. Provide 3-4 answer options per question.
 
-Return ONLY a JSON array, no other text:
-[
-  {{"question": "What is your primary goal?", "options": ["Market analysis", "Build a product", "Academic research", "Personal learning"]}},
-  {{"question": "What's your target audience?", "options": ["Consumers", "Businesses", "Developers", "Enterprise"]}}
-]""",
+Also generate a short project name (3-6 words) that captures the essence of what the user wants to build or research.
+
+Return ONLY a JSON object, no other text:
+{{
+  "questions": [
+    {{"question": "What is your primary goal?", "options": ["Market analysis", "Build a product", "Academic research", "Personal learning"]}},
+    {{"question": "What's your target audience?", "options": ["Consumers", "Businesses", "Developers", "Enterprise"]}}
+  ],
+  "suggested_name": "AI Research Assistant Platform"
+}}""",
             }
         ],
     )
@@ -51,15 +56,24 @@ Return ONLY a JSON array, no other text:
     text = _extract_text(response)
 
     try:
-        questions = _parse_json_array(text)
-        return questions
-    except (json.JSONDecodeError, AttributeError):
-        return [
-            {
-                "question": "What is your primary goal with this research?",
-                "options": ["Market analysis", "Build a product", "Academic research", "General exploration"],
-            }
-        ]
+        result = _parse_json_object(text)
+        if "questions" in result and "suggested_name" in result:
+            return result
+        # Handle case where only questions array is returned
+        if "questions" in result:
+            result["suggested_name"] = query[:50]
+            return result
+        raise ValueError("Missing questions key")
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        return {
+            "questions": [
+                {
+                    "question": "What is your primary goal with this research?",
+                    "options": ["Market analysis", "Build a product", "Academic research", "General exploration"],
+                }
+            ],
+            "suggested_name": query[:50],
+        }
 
 
 async def suggest_plan_directions(query: str, context: dict, artifacts: list[dict]) -> list[dict]:

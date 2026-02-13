@@ -27,8 +27,9 @@ function ArtifactNodeInner({ data }: NodeProps) {
         width: "100%",
         height: "100%",
         borderRadius: 8,
-        outline: isSelected ? "2px solid #6366f1" : "none",
+        outline: isSelected ? "2px solid var(--accent-cyan)" : "none",
         outlineOffset: 2,
+        boxShadow: isSelected ? "0 0 15px rgba(0, 229, 255, 0.15)" : "none",
       }}
     >
       <ArtifactCard

@@ -34,8 +34,7 @@ function GroupNodeInner({ data }: NodeProps) {
           fontWeight: 600,
           padding: "4px 12px",
           borderRadius: "0 0 6px 6px",
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: '"JetBrains Mono", "Fira Code", monospace',
         }}
       >
         {d.title}

@@ -1,7 +1,71 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useProjectStore } from "../../stores/projectStore";
+import type { AgentStatus } from "../../types";
+
+/* ─── Merge directions + agents into unified streams ─── */
+
+interface ResearchStream {
+  id: string;
+  angle: string;
+  sub_query: string;
+  status: "planned" | "running" | "complete" | "error";
+  thinking?: string;
+  artifact_count?: number;
+}
+
+function buildStreams(
+  directions: { angle: string; sub_query: string }[],
+  agents: AgentStatus[],
+): ResearchStream[] {
+  if (directions.length > 0) {
+    const usedAgents = new Set<string>();
+    const streams: ResearchStream[] = directions.map((dir, i) => {
+      const agent = agents.find(
+        (a) => a.focus_area === dir.angle && !usedAgents.has(a.agent_id),
+      );
+      if (agent) usedAgents.add(agent.agent_id);
+      return {
+        id: agent?.agent_id ?? `dir_${i}`,
+        angle: dir.angle,
+        sub_query: dir.sub_query,
+        status: agent
+          ? agent.status === "complete"
+            ? "complete"
+            : agent.status === "error"
+              ? "error"
+              : "running"
+          : "planned",
+        thinking: agent?.thinking,
+        artifact_count: agent?.artifact_count,
+      };
+    });
+    for (const agent of agents) {
+      if (!usedAgents.has(agent.agent_id)) {
+        streams.push({
+          id: agent.agent_id,
+          angle: agent.focus_area || agent.agent_id,
+          sub_query: agent.sub_query || "",
+          status: agent.status === "complete" ? "complete" : agent.status === "error" ? "error" : "running",
+          thinking: agent.thinking,
+          artifact_count: agent.artifact_count,
+        });
+      }
+    }
+    return streams;
+  }
+  return agents.map((a) => ({
+    id: a.agent_id,
+    angle: a.focus_area || a.agent_id,
+    sub_query: a.sub_query || "",
+    status: a.status === "complete" ? "complete" : a.status === "error" ? "error" : "running",
+    thinking: a.thinking,
+    artifact_count: a.artifact_count,
+  }));
+}
+
+/* ─── Main component ─── */
 
 export function FloatingProgress() {
   const {
@@ -11,6 +75,7 @@ export function FloatingProgress() {
     researchQuery,
     planDescription,
     imageGenerationProgress,
+    researchDirections,
   } = useProjectStore();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -21,26 +86,14 @@ export function FloatingProgress() {
   const isActive =
     isResearching || isPlanning || activeAgents.length > 0 || hasImageProgress;
 
-  // Auto-expand when activity starts
   useEffect(() => {
-    if (isActive && !isExpanded) {
-      setIsExpanded(true);
-    }
+    if (isActive && !isExpanded) setIsExpanded(true);
   }, [isActive]);
 
   if (!isActive && agents.length === 0) return null;
 
-  const phaseLabel = isResearching
-    ? "Researching"
-    : isPlanning
-      ? "Planning"
-      : "Processing";
-  const phaseQuery = isResearching
-    ? researchQuery
-    : isPlanning
-      ? planDescription
-      : "";
-  const phaseColor = isResearching ? "indigo" : "emerald";
+  const phaseLabel = isResearching ? "Researching" : isPlanning ? "Planning" : "Processing";
+  const phaseQuery = isResearching ? researchQuery : isPlanning ? planDescription : "";
 
   const indicator = (
     <AnimatePresence>
@@ -48,29 +101,99 @@ export function FloatingProgress() {
         <motion.div
           className="fixed z-[100]"
           style={{ top: 16, right: 16 }}
-          initial={{ opacity: 0, scale: 0.8, y: -20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: -20 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
         >
-          {isExpanded ? (
-            <ExpandedCard
-              phaseLabel={phaseLabel}
-              phaseQuery={phaseQuery}
-              phaseColor={phaseColor}
-              agents={agents}
-              imageGenerationProgress={imageGenerationProgress}
-              hasImageProgress={hasImageProgress}
-              isActive={isActive}
-              onCollapse={() => setIsExpanded(false)}
-            />
-          ) : (
-            <CollapsedCircle
-              activeCount={activeAgents.length}
-              isActive={isActive}
-              onExpand={() => setIsExpanded(true)}
-            />
-          )}
+          <motion.div
+            className={`backdrop-blur-xl rounded-2xl border shadow-2xl overflow-hidden ${isExpanded ? "w-80" : "w-20 h-20"}`}
+            style={{
+              backgroundColor: "rgba(0, 31, 63, 0.95)",
+              borderColor: "#00d4ff",
+              boxShadow: "0 0 30px rgba(0, 212, 255, 0.3)",
+            }}
+            layout
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            {/* Header / Collapsed */}
+            <div
+              className="p-4 cursor-pointer"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              <div className="flex items-center gap-3">
+                {/* Spinner */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-6 h-6 border-2 rounded-full animate-spin"
+                    style={{ borderColor: "rgba(0, 212, 255, 0.3)" }}
+                  />
+                  {isActive && (
+                    <div
+                      className="absolute inset-0 border-2 border-transparent rounded-full animate-spin"
+                      style={{
+                        borderTopColor: "#00ffff",
+                        filter: "drop-shadow(0 0 4px rgba(0, 255, 255, 0.8))",
+                      }}
+                    />
+                  )}
+                  {!isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#00ff88" }} />
+                    </div>
+                  )}
+                </div>
+
+                {isExpanded && (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "#00ffff" }}>
+                        {phaseQuery || phaseLabel}
+                      </p>
+                      <p className="text-xs" style={{ color: "#40e0d0" }}>
+                        {isActive ? `${phaseLabel}...` : "Complete"}
+                      </p>
+                    </div>
+                    <button
+                      className="p-1 rounded-lg transition-colors flex-shrink-0 hover:bg-[rgba(0,153,255,0.3)]"
+                      style={{ color: "#40e0d0" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsExpanded(false);
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Expanded content */}
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="border-t"
+                  style={{ borderTopColor: "rgba(0, 153, 255, 0.5)" }}
+                >
+                  <ExpandedContent
+                    agents={agents}
+                    researchDirections={researchDirections}
+                    isResearching={isResearching}
+                    isActive={isActive}
+                    imageGenerationProgress={imageGenerationProgress}
+                    hasImageProgress={hasImageProgress}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -79,243 +202,125 @@ export function FloatingProgress() {
   return createPortal(indicator, document.body);
 }
 
-function CollapsedCircle({
-  activeCount,
-  isActive,
-  onExpand,
-}: {
-  activeCount: number;
-  isActive: boolean;
-  onExpand: () => void;
-}) {
-  return (
-    <motion.button
-      className="relative w-14 h-14 rounded-full backdrop-blur-xl border cursor-pointer"
-      style={{
-        backgroundColor: "rgba(15, 15, 26, 0.95)",
-        borderColor: "rgba(99, 102, 241, 0.4)",
-        boxShadow: "0 0 24px rgba(99, 102, 241, 0.2)",
-      }}
-      onClick={onExpand}
-      whileHover={{ scale: 1.08 }}
-      whileTap={{ scale: 0.95 }}
-      layout
-    >
-      {/* Outer spinning ring */}
-      {isActive && (
-        <>
-          <div
-            className="absolute inset-0 rounded-full animate-spin"
-            style={{
-              border: "2px solid transparent",
-              borderTopColor: "#818cf8",
-              animationDuration: "2s",
-            }}
-          />
-          <div
-            className="absolute inset-1 rounded-full animate-spin"
-            style={{
-              border: "2px solid transparent",
-              borderBottomColor: "#6366f1",
-              animationDuration: "3s",
-              animationDirection: "reverse",
-            }}
-          />
-        </>
-      )}
-      {/* Center dot */}
-      <div
-        className="absolute inset-0 flex items-center justify-center"
-      >
-        <div
-          className={`w-3 h-3 rounded-full ${isActive ? "animate-pulse" : ""}`}
-          style={{ backgroundColor: isActive ? "#818cf8" : "#4b5563" }}
-        />
-      </div>
-      {/* Badge */}
-      {activeCount > 0 && (
-        <div
-          className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-          style={{ backgroundColor: "#6366f1" }}
-        >
-          {activeCount}
-        </div>
-      )}
-    </motion.button>
-  );
-}
+/* ─── Expanded content section ─── */
 
-function ExpandedCard({
-  phaseLabel,
-  phaseQuery,
-  phaseColor,
+function ExpandedContent({
   agents,
+  researchDirections,
+  isResearching,
+  isActive,
   imageGenerationProgress,
   hasImageProgress,
-  isActive,
-  onCollapse,
 }: {
-  phaseLabel: string;
-  phaseQuery: string;
-  phaseColor: "indigo" | "emerald";
-  agents: { agent_id: string; focus_area: string; status: string; thinking?: string; artifact_count?: number }[];
+  agents: AgentStatus[];
+  researchDirections: { angle: string; sub_query: string }[];
+  isResearching: boolean;
+  isActive: boolean;
   imageGenerationProgress: { total: number; completed: number } | null;
   hasImageProgress: boolean;
-  isActive: boolean;
-  onCollapse: () => void;
 }) {
-  const colors = {
-    indigo: {
-      badge: "bg-indigo-500/20 border-indigo-500/40 text-indigo-300",
-      dot: "#818cf8",
-    },
-    emerald: {
-      badge: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300",
-      dot: "#34d399",
-    },
-  };
-  const c = colors[phaseColor];
+  const streams = useMemo(
+    () => buildStreams(researchDirections, agents),
+    [researchDirections, agents],
+  );
+  const completedCount = streams.filter((s) => s.status === "complete").length;
+  const totalCount = streams.length;
 
   return (
-    <motion.div
-      className="w-80 backdrop-blur-xl rounded-2xl border overflow-hidden"
-      style={{
-        backgroundColor: "rgba(15, 15, 26, 0.95)",
-        borderColor: "rgba(99, 102, 241, 0.3)",
-        boxShadow: "0 4px 40px rgba(99, 102, 241, 0.15)",
-      }}
-      layout
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-        onClick={onCollapse}
-      >
-        {/* Spinning indicator */}
-        <div className="relative w-6 h-6 flex-shrink-0">
-          {isActive && (
-            <>
-              <div
-                className="absolute inset-0 rounded-full animate-spin"
-                style={{
-                  border: "2px solid transparent",
-                  borderTopColor: c.dot,
-                  animationDuration: "2s",
-                }}
-              />
-              <div
-                className="absolute inset-0.5 rounded-full animate-spin"
-                style={{
-                  border: "1.5px solid transparent",
-                  borderBottomColor: c.dot,
-                  animationDuration: "3s",
-                  animationDirection: "reverse",
-                }}
-              />
-            </>
-          )}
-          {!isActive && (
-            <div
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-            </div>
-          )}
+    <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+      {/* Planning state — no directions yet */}
+      {isResearching && streams.length === 0 && (
+        <div className="text-center py-2">
+          <p className="text-xs" style={{ color: "#00d4ff" }}>
+            Analyzing topic & planning research angles...
+          </p>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.badge}`}
-            >
-              {phaseLabel}
-            </span>
-          </div>
-          {phaseQuery && (
-            <p className="text-xs text-zinc-400 truncate mt-1">{phaseQuery}</p>
-          )}
-        </div>
-        {/* Collapse button */}
-        <button
-          className="p-1 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCollapse();
+      )}
+
+      {/* Research directions section card */}
+      {streams.length > 0 && (
+        <div
+          className="rounded-xl border overflow-hidden"
+          style={{
+            backgroundColor: "rgba(0, 212, 255, 0.08)",
+            borderColor: "rgba(0, 212, 255, 0.25)",
           }}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Agent cards */}
-      {agents.length > 0 && (
-        <div className="px-3 pb-2 space-y-1.5 max-h-52 overflow-y-auto">
-          {agents.map((agent) => (
+          {/* Section header */}
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 border-b"
+            style={{ borderBottomColor: "rgba(0, 212, 255, 0.2)" }}
+          >
             <div
-              key={agent.agent_id}
-              className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs"
+              className="w-2 h-2 rounded-full animate-pulse flex-shrink-0"
               style={{
-                backgroundColor:
-                  agent.status === "running"
-                    ? "rgba(234, 179, 8, 0.06)"
-                    : agent.status === "complete"
-                      ? "rgba(34, 197, 94, 0.06)"
-                      : "rgba(239, 68, 68, 0.06)",
-                border: `1px solid ${
-                  agent.status === "running"
-                    ? "rgba(234, 179, 8, 0.15)"
-                    : agent.status === "complete"
-                      ? "rgba(34, 197, 94, 0.15)"
-                      : "rgba(239, 68, 68, 0.15)"
-                }`,
+                backgroundColor: isActive ? "#00d4ff" : "#00ff88",
+                boxShadow: `0 0 6px ${isActive ? "rgba(0, 212, 255, 0.8)" : "rgba(0, 255, 136, 0.8)"}`,
               }}
+            />
+            <span className="text-xs font-medium" style={{ color: "#00d4ff" }}>
+              Research Directions
+            </span>
+            <span className="text-xs ml-auto tabular-nums" style={{ color: "rgba(64, 224, 208, 0.7)" }}>
+              {completedCount}/{totalCount} complete
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="px-3 pt-2 pb-1">
+            <div
+              className="h-1 rounded-full overflow-hidden"
+              style={{ backgroundColor: "rgba(0, 212, 255, 0.15)" }}
             >
-              <span
-                className={`flex-shrink-0 w-1.5 h-1.5 rounded-full mt-1.5 ${
-                  agent.status === "running"
-                    ? "bg-yellow-500 animate-pulse"
-                    : agent.status === "complete"
-                      ? "bg-green-500"
-                      : "bg-red-500"
-                }`}
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: "#00d4ff" }}
+                animate={{ width: totalCount > 0 ? `${(completedCount / totalCount) * 100}%` : "0%" }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
               />
-              <div className="flex-1 min-w-0">
-                <span className="text-zinc-300 font-medium block truncate">
-                  {agent.focus_area || agent.agent_id}
-                </span>
-                {agent.thinking && agent.status === "running" && (
-                  <span className="text-zinc-600 block truncate mt-0.5">
-                    {agent.thinking}
-                  </span>
-                )}
-                {agent.status === "complete" && agent.artifact_count != null && (
-                  <span className="text-zinc-500 block mt-0.5">
-                    {agent.artifact_count} artifact{agent.artifact_count !== 1 ? "s" : ""} found
-                  </span>
-                )}
-              </div>
             </div>
-          ))}
+          </div>
+
+          {/* Stream rows */}
+          <div className="px-3 pb-3 pt-1 space-y-0.5">
+            {streams.map((stream, i) => (
+              <StreamRow key={stream.id} stream={stream} index={i} />
+            ))}
+          </div>
         </div>
       )}
 
       {/* Image generation progress */}
       {hasImageProgress && imageGenerationProgress && (
-        <div className="px-4 pb-3 pt-1">
-          <div className="flex items-center justify-between text-[11px] text-zinc-500 mb-1.5">
-            <span>Generating images</span>
-            <span className="tabular-nums">
+        <div
+          className="rounded-xl p-3 border"
+          style={{
+            backgroundColor: "rgba(139, 92, 246, 0.1)",
+            borderColor: "rgba(139, 92, 246, 0.3)",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{
+                backgroundColor: "#a78bfa",
+                boxShadow: "0 0 6px rgba(167, 139, 250, 0.8)",
+              }}
+            />
+            <span className="text-xs font-medium" style={{ color: "#a78bfa" }}>
+              Generating Images
+            </span>
+            <span className="text-xs ml-auto tabular-nums" style={{ color: "rgba(167, 139, 250, 0.7)" }}>
               {imageGenerationProgress.completed}/{imageGenerationProgress.total}
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-zinc-800/80 overflow-hidden">
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "rgba(139, 92, 246, 0.2)" }}
+          >
             <motion.div
               className="h-full rounded-full"
-              style={{
-                background: "linear-gradient(90deg, #8b5cf6, #d946ef)",
-              }}
+              style={{ background: "linear-gradient(90deg, #8b5cf6, #d946ef)" }}
               initial={{ width: 0 }}
               animate={{
                 width: `${(imageGenerationProgress.completed / imageGenerationProgress.total) * 100}%`,
@@ -324,6 +329,62 @@ function ExpandedCard({
             />
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Individual stream row ─── */
+
+const streamStatusStyles = {
+  planned: { dot: "#5eead4", dotGlow: "none", label: "Queued", labelColor: "#5eead4" },
+  running: { dot: "#facc15", dotGlow: "0 0 6px rgba(250, 204, 21, 0.6)", label: "Searching", labelColor: "#facc15" },
+  complete: { dot: "#00ff88", dotGlow: "0 0 6px rgba(0, 255, 136, 0.6)", label: "Done", labelColor: "#00ff88" },
+  error: { dot: "#f87171", dotGlow: "0 0 6px rgba(248, 113, 113, 0.6)", label: "Failed", labelColor: "#f87171" },
+};
+
+function StreamRow({ stream, index }: { stream: ResearchStream; index: number }) {
+  const cfg = streamStatusStyles[stream.status];
+
+  return (
+    <motion.div
+      className="py-2 border-b last:border-b-0"
+      style={{ borderBottomColor: "rgba(0, 153, 255, 0.12)" }}
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.25 }}
+    >
+      {/* Top line: dot + angle + status */}
+      <div className="flex items-center gap-2">
+        <div
+          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stream.status === "running" ? "animate-pulse" : ""}`}
+          style={{ backgroundColor: cfg.dot, boxShadow: cfg.dotGlow }}
+        />
+        <span className="text-xs font-medium flex-1 truncate" style={{ color: "#e0f8ff" }}>
+          {stream.angle}
+        </span>
+        <span className="text-[10px] flex-shrink-0" style={{ color: cfg.labelColor, opacity: 0.8 }}>
+          {stream.status === "complete" && stream.artifact_count != null
+            ? `${stream.artifact_count} found`
+            : cfg.label}
+        </span>
+      </div>
+
+      {/* Sub-query */}
+      {stream.sub_query && (
+        <p className="text-[11px] leading-relaxed mt-1 ml-3.5 line-clamp-2" style={{ color: "rgba(224, 248, 255, 0.5)" }}>
+          {stream.sub_query}
+        </p>
+      )}
+
+      {/* Live thinking */}
+      {stream.status === "running" && stream.thinking && (
+        <p
+          className="text-[11px] mt-1 ml-3.5 truncate italic"
+          style={{ color: "rgba(250, 204, 21, 0.5)" }}
+        >
+          {stream.thinking}
+        </p>
       )}
     </motion.div>
   );

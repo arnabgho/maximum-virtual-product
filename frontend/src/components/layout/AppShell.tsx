@@ -11,7 +11,7 @@ export function AppShell() {
   useWebSocket(project?.id ?? null);
 
   return (
-    <div className="h-screen flex flex-col bg-[#0f0f1a]">
+    <div className="h-screen flex flex-col bg-[var(--bg-deep)]">
       <PhaseNav />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />

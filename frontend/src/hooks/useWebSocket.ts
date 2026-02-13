@@ -21,17 +21,16 @@ export function useWebSocket(projectId: string | null) {
             focus_area: event.data.focus_area as string,
             status: "running",
             artifact_count: 0,
+            sub_query: event.data.sub_query as string,
           });
           break;
 
         case "agent_thinking":
           store.setAgentStatus({
             agent_id: event.data.agent_id as string,
-            focus_area: "",
             status: "running",
-            artifact_count: 0,
             thinking: event.data.text as string,
-          });
+          } as AgentStatus);
           break;
 
         case "artifact_created":
@@ -50,10 +49,9 @@ export function useWebSocket(projectId: string | null) {
         case "agent_complete":
           store.setAgentStatus({
             agent_id: event.data.agent_id as string,
-            focus_area: "",
             status: "complete",
             artifact_count: event.data.artifact_count as number,
-          });
+          } as AgentStatus);
           break;
 
         case "images_generating":
@@ -83,6 +81,12 @@ export function useWebSocket(projectId: string | null) {
 
         case "plan_directions_ready":
           store.setPlanDirections(event.data.directions as unknown as PlanDirection[]);
+          break;
+
+        case "research_directions_planned":
+          store.setResearchDirections(
+            event.data.angles as { angle: string; sub_query: string }[]
+          );
           break;
 
         case "images_complete":

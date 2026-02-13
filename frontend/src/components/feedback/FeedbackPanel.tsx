@@ -33,11 +33,11 @@ export function FeedbackPanel({ artifactId }: { artifactId: string }) {
   };
 
   return (
-    <div className="border-t border-[#3a3a4e] p-4">
+    <div className="border-t border-[var(--border-dim)] p-4">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold text-zinc-500">Feedback</h4>
+        <h4 className="text-xs font-semibold text-[var(--text-muted)] font-mono-hud uppercase tracking-wider">Feedback</h4>
         {pendingCount > 0 && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-500/20 text-amber-400 rounded-full">
+          <span className="badge-amber px-1.5 py-0.5 text-[10px] font-medium rounded-full">
             {pendingCount} pending
           </span>
         )}
@@ -48,23 +48,23 @@ export function FeedbackPanel({ artifactId }: { artifactId: string }) {
             key={f.id}
             className={`text-xs p-2 rounded border-l-2 ${
               f.status === "addressed"
-                ? "bg-[#0f0f1a] border-green-500/50"
-                : "bg-[#0f0f1a] border-amber-500/50"
+                ? "bg-[var(--bg-deep)] border-[var(--accent-green)]"
+                : "bg-[var(--bg-deep)] border-[var(--accent-amber)]"
             }`}
           >
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className={f.source === "ai" ? "text-indigo-400 font-medium" : "text-zinc-300 font-medium"}>
+              <span className={f.source === "ai" ? "text-[var(--accent-cyan)] font-medium" : "text-[var(--text-primary)] font-medium"}>
                 {f.source === "ai" ? "AI" : f.author || "You"}
               </span>
               <span className={`text-[10px] px-1 rounded ${
                 f.status === "addressed"
-                  ? "bg-green-500/20 text-green-400"
-                  : "bg-amber-500/20 text-amber-400"
+                  ? "badge-green"
+                  : "badge-amber"
               }`}>
                 {f.status}
               </span>
             </div>
-            <span className="text-zinc-400">{f.comment}</span>
+            <span className="text-[var(--text-secondary)]">{f.comment}</span>
           </div>
         ))}
       </div>
@@ -77,12 +77,12 @@ export function FeedbackPanel({ artifactId }: { artifactId: string }) {
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           placeholder="Add feedback..."
-          className="flex-1 px-2 py-1.5 bg-[#0f0f1a] border border-[#3a3a4e] rounded text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+          className="hud-input flex-1 rounded text-xs"
         />
         <button
           onClick={handleSubmit}
           disabled={!comment.trim()}
-          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs rounded"
+          className="hud-btn-primary px-3 py-1.5 text-xs rounded"
         >
           Send
         </button>
@@ -92,7 +92,7 @@ export function FeedbackPanel({ artifactId }: { artifactId: string }) {
       <button
         onClick={handleRegenerate}
         disabled={pendingCount === 0 || !!isRegenerating}
-        className="w-full py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded font-medium transition-colors flex items-center justify-center gap-2"
+        className="hud-btn-primary w-full py-2 disabled:opacity-40 disabled:cursor-not-allowed text-xs rounded font-mono-hud uppercase tracking-wider flex items-center justify-center gap-2"
       >
         {isThisRegenerating ? (
           <>
