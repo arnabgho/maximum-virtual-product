@@ -110,6 +110,28 @@ export function useWebSocket(projectId: string | null) {
           store.markFeedbackAddressed(event.data.artifact_id as string);
           break;
 
+        case "batch_regenerate_start":
+          store.setBatchRegenerateProgress({
+            total: event.data.total as number,
+            completed: 0,
+            currentArtifactId: null,
+            failed: 0,
+          });
+          break;
+
+        case "batch_regenerate_progress":
+          store.incrementBatchRegenerate(
+            event.data.artifact_id as string,
+            event.data.status as "complete" | "failed"
+          );
+          break;
+
+        case "batch_regenerate_complete":
+          setTimeout(() => {
+            store.setBatchRegenerateProgress(null);
+          }, 2000);
+          break;
+
         case "research_complete":
           store.setResearching(false);
           // Re-fetch project to ensure canvas is in sync

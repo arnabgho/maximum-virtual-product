@@ -73,6 +73,13 @@ export interface PlanDirection {
   key_focus: string;
 }
 
+export interface SpatialBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Feedback {
   id: string;
   artifact_id: string;
@@ -80,6 +87,7 @@ export interface Feedback {
   source: "human" | "ai";
   author: string;
   comment: string;
+  bounds: SpatialBounds | null;
   status: "pending" | "addressed";
   created_at: string;
 }
@@ -115,6 +123,9 @@ export type WSEventType =
   | "image_generated"
   | "artifact_updated"
   | "feedback_addressed"
+  | "batch_regenerate_start"
+  | "batch_regenerate_progress"
+  | "batch_regenerate_complete"
   | "plan_directions_ready"
   | "research_directions_planned"
   | "design_image_ready"

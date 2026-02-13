@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from collections import defaultdict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
@@ -21,6 +23,7 @@ async def add_feedback(project_id: str, data: FeedbackCreate):
         source=data.source,
         author=data.author,
         comment=data.comment,
+        bounds=data.bounds,
     )
     return await db.create_feedback(feedback)
 
@@ -66,12 +69,15 @@ async def _regenerate_artifact_task(
     db = get_db()
     ws_manager = get_ws_manager()
 
-    feedback_comments = [f.comment for f in pending_feedback]
+    feedback_items = [
+        {"comment": f.comment, "bounds": f.bounds}
+        for f in pending_feedback
+    ]
     artifact_dict = artifact.model_dump()
 
     # Call Claude to regenerate
     logger.info("Regeneration requested for artifact=%s", artifact_id)
-    result = await claude_service.regenerate_artifact(artifact_dict, feedback_comments)
+    result = await claude_service.regenerate_artifact(artifact_dict, feedback_items)
     if not result:
         logger.error("Regeneration Claude call failed for artifact=%s", artifact_id)
         await ws_manager.send_event(project_id, "error", {
@@ -117,3 +123,91 @@ async def _regenerate_artifact_task(
                 "artifact_id": artifact_id,
                 "image_url": image_url,
             })
+
+
+@router.post("/{project_id}/batch-regenerate")
+async def batch_regenerate(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+):
+    db = get_db()
+
+    # Get all pending feedback for this project
+    all_feedback = await db.get_feedback(project_id)
+    pending = [f for f in all_feedback if f.status == "pending"]
+    if not pending:
+        raise HTTPException(status_code=400, detail="No pending feedback to apply")
+
+    # Group by artifact_id
+    by_artifact: dict[str, list[Feedback]] = defaultdict(list)
+    for f in pending:
+        by_artifact[f.artifact_id].append(f)
+
+    background_tasks.add_task(
+        _batch_regenerate_task, project_id, by_artifact
+    )
+    return {"status": "batch_regenerating", "artifact_count": len(by_artifact)}
+
+
+async def _batch_regenerate_task(
+    project_id: str,
+    by_artifact: dict[str, list[Feedback]],
+):
+    db = get_db()
+    ws_manager = get_ws_manager()
+
+    artifact_ids = list(by_artifact.keys())
+    total = len(artifact_ids)
+    succeeded = 0
+    failed = 0
+
+    await ws_manager.send_event(project_id, "batch_regenerate_start", {
+        "total": total,
+    })
+
+    # Get all artifacts once
+    all_artifacts = await db.get_artifacts(project_id)
+    artifact_map = {a.id: a for a in all_artifacts}
+
+    for i, artifact_id in enumerate(artifact_ids):
+        artifact = artifact_map.get(artifact_id)
+        if not artifact:
+            failed += 1
+            await ws_manager.send_event(project_id, "batch_regenerate_progress", {
+                "artifact_id": artifact_id,
+                "index": i,
+                "total": total,
+                "status": "failed",
+            })
+            continue
+
+        try:
+            await _regenerate_artifact_task(
+                project_id, artifact_id, artifact, by_artifact[artifact_id]
+            )
+            succeeded += 1
+            await ws_manager.send_event(project_id, "batch_regenerate_progress", {
+                "artifact_id": artifact_id,
+                "index": i,
+                "total": total,
+                "status": "complete",
+            })
+        except Exception:
+            logger.exception("Batch regenerate failed for artifact=%s", artifact_id)
+            failed += 1
+            await ws_manager.send_event(project_id, "batch_regenerate_progress", {
+                "artifact_id": artifact_id,
+                "index": i,
+                "total": total,
+                "status": "failed",
+            })
+
+        # Small delay between artifacts to avoid rate limits
+        if i < total - 1:
+            await asyncio.sleep(1)
+
+    await ws_manager.send_event(project_id, "batch_regenerate_complete", {
+        "total": total,
+        "succeeded": succeeded,
+        "failed": failed,
+    })
