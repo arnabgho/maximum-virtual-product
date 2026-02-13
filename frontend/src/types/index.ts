@@ -84,6 +84,22 @@ export interface Feedback {
   created_at: string;
 }
 
+export interface DesignOption {
+  option_id: string;
+  label: string;
+  description: string;
+  image_prompt: string;
+  image_url: string | null;
+}
+
+export interface DesignDimension {
+  dimension_id: string;
+  dimension_name: string;
+  description: string;
+  option_a: DesignOption;
+  option_b: DesignOption;
+}
+
 // WebSocket event types
 export type WSEventType =
   | "agent_started"
@@ -101,6 +117,8 @@ export type WSEventType =
   | "feedback_addressed"
   | "plan_directions_ready"
   | "research_directions_planned"
+  | "design_image_ready"
+  | "design_images_complete"
   | "error";
 
 export interface WSEvent {

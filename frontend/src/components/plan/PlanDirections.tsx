@@ -1,120 +1,16 @@
-import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
-import { planApi } from "../../api/plan";
-import { ClarifyingQuestions } from "../home/ClarifyingQuestions";
-import type { PlanDirection } from "../../types";
 
 export function PlanDirections() {
   const {
-    project,
     isPlanning,
     planDescription,
-    planDirections,
     artifacts,
-    setPlanning,
-    planClarifyingQuestions,
-    setPlanClarifyingQuestions,
-    selectedDirection,
-    setSelectedDirection,
-    planClarifyLoading,
-    setPlanClarifyLoading,
+    setShowPlanWizard,
   } = useProjectStore();
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [customDescription, setCustomDescription] = useState("");
-  const [useCustom, setUseCustom] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const researchArtifactIds = artifacts
-    .filter((a) => a.phase === "research")
-    .map((a) => a.id);
+  const hasPlanArtifacts = artifacts.some((a) => a.phase === "plan");
 
-  const handleSelectDirection = async (direction: PlanDirection) => {
-    if (!project || planClarifyLoading) return;
-    setPlanClarifyLoading(true);
-    setSelectedDirection(direction);
-    try {
-      const result = await planApi.clarify(project.id, direction);
-      setPlanClarifyingQuestions(result.questions || []);
-    } catch (e) {
-      console.error("Clarify failed:", e);
-      // Fallback: start plan directly without clarifying questions
-      const description = `${direction.title}: ${direction.description}\n\nKey focus: ${direction.key_focus}`;
-      setPlanning(true, direction.title);
-      try {
-        await planApi.start(project.id, description, researchArtifactIds);
-      } catch (err) {
-        console.error("Plan failed:", err);
-        setPlanning(false);
-      }
-    } finally {
-      setPlanClarifyLoading(false);
-    }
-  };
-
-  const handleSelectCustom = async () => {
-    if (!project || !customDescription.trim() || planClarifyLoading) return;
-    setPlanClarifyLoading(true);
-    const customDir: PlanDirection = {
-      title: customDescription.trim().slice(0, 60),
-      description: customDescription.trim(),
-      key_focus: "",
-    };
-    setSelectedDirection(customDir);
-    try {
-      const result = await planApi.clarify(project.id, customDir);
-      setPlanClarifyingQuestions(result.questions || []);
-    } catch (e) {
-      console.error("Clarify failed:", e);
-      // Fallback: start plan directly
-      setPlanning(true, customDescription.trim());
-      try {
-        await planApi.start(project.id, customDescription.trim(), researchArtifactIds);
-      } catch (err) {
-        console.error("Plan failed:", err);
-        setPlanning(false);
-      }
-    } finally {
-      setPlanClarifyLoading(false);
-    }
-  };
-
-  const handleClarifySubmit = async (answers: Record<string, string>) => {
-    if (!project || !selectedDirection) return;
-    const description = selectedDirection.key_focus
-      ? `${selectedDirection.title}: ${selectedDirection.description}\n\nKey focus: ${selectedDirection.key_focus}`
-      : selectedDirection.description;
-    setLoading(true);
-    setPlanning(true, selectedDirection.title);
-    try {
-      await planApi.start(project.id, description, researchArtifactIds, answers);
-    } catch (e) {
-      console.error("Plan failed:", e);
-      setPlanning(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClarifyBack = () => {
-    setPlanClarifyingQuestions([]);
-    setSelectedDirection(null);
-  };
-
-  // Show clarifying questions wizard
-  if (planClarifyingQuestions.length > 0 && selectedDirection && !isPlanning) {
-    return (
-      <ClarifyingQuestions
-        topic={selectedDirection.title}
-        questions={planClarifyingQuestions}
-        loading={loading}
-        onSubmit={handleClarifySubmit}
-        onBack={handleClarifyBack}
-        submitLabel="Generate Blueprint"
-        badgeLabel="Planning"
-      />
-    );
-  }
-
+  // Planning in progress — show spinner
   if (isPlanning) {
     return (
       <div className="space-y-3">
@@ -140,105 +36,33 @@ export function PlanDirections() {
     );
   }
 
-  // No directions yet — show loading or fallback
-  if (planDirections.length === 0) {
+  // Plan artifacts exist — nothing to show (artifacts are listed by Sidebar)
+  if (hasPlanArtifacts) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-zinc-400 text-sm">
-          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          Generating plan directions...
-        </div>
-        {/* Fallback: allow custom description */}
-        <div className="mt-4 pt-4 border-t border-[var(--border-dim)]">
-          <textarea
-            value={customDescription}
-            onChange={(e) => setCustomDescription(e.target.value)}
-            placeholder="Or write your own plan description..."
-            rows={3}
-            className="hud-input rounded-lg text-sm resize-none"
-          />
-          <button
-            onClick={handleSelectCustom}
-            disabled={!customDescription.trim() || planClarifyLoading}
-            className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full mt-2 py-2"
-          >
-            {planClarifyLoading ? "Loading questions..." : "Generate Blueprint"}
-          </button>
-        </div>
-      </div>
+      <button
+        onClick={() => setShowPlanWizard(true)}
+        className="w-full py-2.5 rounded-lg border border-dashed border-[var(--border-dim)] text-[var(--text-muted)] hover:text-[var(--accent-cyan)] hover:border-[var(--accent-cyan)]/30 transition-all font-mono-hud text-xs uppercase tracking-wider"
+      >
+        + New Blueprint
+      </button>
     );
   }
 
+  // No plan artifacts, not planning — show "Open Plan Wizard" button
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-[var(--text-muted)] font-mono-hud uppercase tracking-wider">
-        Suggested Directions
+      <button
+        onClick={() => setShowPlanWizard(true)}
+        className="w-full py-4 hud-btn-primary rounded-lg font-mono-hud text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+      >
+        Open Plan Wizard
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+          <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <p className="text-xs text-[var(--text-muted)] text-center font-mono-hud">
+        Configure direction, design preferences, and scope
       </p>
-
-      {planDirections.map((dir, i) => {
-        const selected = selectedIdx === i && !useCustom;
-        return (
-          <button
-            key={i}
-            onClick={() => { setSelectedIdx(i); setUseCustom(false); }}
-            className={`w-full text-left p-3 rounded-lg border transition-colors ${
-              selected
-                ? "bg-[var(--accent-cyan)]/5 border-[var(--accent-cyan)]/30"
-                : "bg-[var(--bg-surface)] border-[var(--border-dim)] hover:border-[var(--accent-cyan)]/30"
-            }`}
-          >
-            <p className={`text-sm font-medium ${selected ? "text-[var(--accent-cyan)]" : "text-white"}`}>
-              {dir.title}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">{dir.description}</p>
-            <p className="text-[10px] text-zinc-500 mt-1 italic">{dir.key_focus}</p>
-          </button>
-        );
-      })}
-
-      {selectedIdx !== null && !useCustom && planDirections[selectedIdx] && (
-        <button
-          onClick={() => handleSelectDirection(planDirections[selectedIdx]!)}
-          disabled={planClarifyLoading}
-          className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
-        >
-          {planClarifyLoading ? "Loading questions..." : "Build This Plan"}
-        </button>
-      )}
-
-      {/* Custom option */}
-      <div className="pt-3 border-t border-[var(--border-dim)]">
-        <button
-          onClick={() => { setUseCustom(true); setSelectedIdx(null); }}
-          className={`text-xs font-medium font-mono-hud transition-colors ${
-            useCustom ? "text-[var(--accent-cyan)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          }`}
-        >
-          Write your own direction
-        </button>
-        {useCustom && (
-          <div className="mt-2 space-y-2">
-            <textarea
-              value={customDescription}
-              onChange={(e) => setCustomDescription(e.target.value)}
-              placeholder="Describe your product or project..."
-              rows={3}
-              className="hud-input rounded-lg text-sm resize-none"
-              autoFocus
-            />
-            <button
-              onClick={handleSelectCustom}
-              disabled={!customDescription.trim() || planClarifyLoading}
-              className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
-            >
-              {planClarifyLoading ? "Loading questions..." : "Generate Blueprint"}
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

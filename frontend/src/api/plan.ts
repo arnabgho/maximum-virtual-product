@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { ClarifyingQuestion, PlanDirection } from "../types";
+import type { ClarifyingQuestion, DesignDimension, PlanDirection } from "../types";
 
 export const planApi = {
   start: (
@@ -17,6 +17,12 @@ export const planApi = {
   clarify: (projectId: string, direction: PlanDirection | Record<string, string>) =>
     api.post<{ questions: ClarifyingQuestion[] }>(
       `/api/projects/${projectId}/plan-clarify`,
+      { direction },
+    ),
+
+  designPreferences: (projectId: string, direction: Record<string, string>) =>
+    api.post<{ dimensions: DesignDimension[] }>(
+      `/api/projects/${projectId}/design-preferences`,
       { direction },
     ),
 };

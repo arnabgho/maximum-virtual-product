@@ -213,6 +213,129 @@ Each direction should be a different strategic approach. Return ONLY a JSON arra
         ]
 
 
+async def generate_design_preference_dimensions(
+    direction: dict, research_artifacts: list[dict], project_description: str = ""
+) -> list[dict]:
+    """Generate 5 design dimension pairs for user preference selection.
+
+    Each dimension has two options with image prompts for Gemini.
+    Returns: [{dimension_id, dimension_name, description, option_a: {option_id, label, description, image_prompt}, option_b: {...}}, ...]
+    """
+    client = get_client()
+
+    direction_block = ""
+    if direction:
+        direction_block = (
+            f'\nSelected direction: "{direction.get("title", "")}"\n'
+            f'Description: {direction.get("description", "")}\n'
+        )
+
+    description_block = ""
+    if project_description:
+        description_block = f'\nProject description: "{project_description}"\n'
+
+    artifact_summaries = "\n".join(
+        f"- [{a.get('type', '')}] {a.get('title', '')}: {a.get('summary', '')}"
+        for a in research_artifacts[:10]
+    )
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=6000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a product design consultant. Based on the product direction and research, generate exactly 5 design preference dimensions.
+
+Each dimension presents TWO contrasting visual/UX approaches for THIS specific product. Make them specific to the product, not generic.
+{direction_block}{description_block}
+Research findings:
+{artifact_summaries}
+
+For each dimension, create two options with detailed image prompts that Gemini can use to generate UI mockup screenshots.
+
+Return ONLY a JSON array of 5 objects:
+[
+  {{
+    "dimension_id": "dim_1",
+    "dimension_name": "Color Scheme",
+    "description": "Overall color palette and mood",
+    "option_a": {{
+      "option_id": "dim_1_a",
+      "label": "Dark & Moody",
+      "description": "Deep navy/charcoal palette with neon accents",
+      "image_prompt": "High-fidelity UI mockup screenshot of a [product type] app with dark navy background, neon cyan accents, modern sans-serif typography, showing the main dashboard view. Clean, professional design. No watermarks."
+    }},
+    "option_b": {{
+      "option_id": "dim_1_b",
+      "label": "Light & Clean",
+      "description": "White/cream palette with subtle color accents",
+      "image_prompt": "High-fidelity UI mockup screenshot of a [product type] app with white/cream background, soft blue accents, clean typography, showing the main dashboard view. Minimal, airy design. No watermarks."
+    }}
+  }}
+]
+
+Make all 5 dimensions different aspects: color scheme, layout style, typography/density, visual elements, component style. Tailor image prompts to this specific product.""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        dimensions = _parse_json_array(text)
+        # Validate structure
+        for dim in dimensions:
+            if not all(k in dim for k in ("dimension_id", "dimension_name", "option_a", "option_b")):
+                raise ValueError("Invalid dimension structure")
+        return dimensions[:5]
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        logger.warning("Failed to parse design dimensions, using fallback")
+        return _fallback_design_dimensions()
+
+
+def _fallback_design_dimensions() -> list[dict]:
+    """Generic fallback dimensions if Claude fails."""
+    return [
+        {
+            "dimension_id": "dim_1",
+            "dimension_name": "Color Scheme",
+            "description": "Overall color palette and mood",
+            "option_a": {"option_id": "dim_1_a", "label": "Dark & Moody", "description": "Deep dark palette with vibrant accents", "image_prompt": ""},
+            "option_b": {"option_id": "dim_1_b", "label": "Light & Clean", "description": "Bright, airy palette with subtle tones", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_2",
+            "dimension_name": "Layout Style",
+            "description": "How content is organized on screen",
+            "option_a": {"option_id": "dim_2_a", "label": "Dense & Data-rich", "description": "Compact layout with lots of info visible", "image_prompt": ""},
+            "option_b": {"option_id": "dim_2_b", "label": "Spacious & Focused", "description": "Generous whitespace, one thing at a time", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_3",
+            "dimension_name": "Typography",
+            "description": "Text styling and readability approach",
+            "option_a": {"option_id": "dim_3_a", "label": "Modern Sans-serif", "description": "Clean geometric sans-serif fonts", "image_prompt": ""},
+            "option_b": {"option_id": "dim_3_b", "label": "Warm & Humanist", "description": "Rounded, friendly typefaces", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_4",
+            "dimension_name": "Visual Elements",
+            "description": "Use of imagery and decorative elements",
+            "option_a": {"option_id": "dim_4_a", "label": "Illustration-heavy", "description": "Custom illustrations and icons throughout", "image_prompt": ""},
+            "option_b": {"option_id": "dim_4_b", "label": "Photo-driven", "description": "Real photography and minimal illustrations", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_5",
+            "dimension_name": "Component Style",
+            "description": "Shape language for buttons, cards, inputs",
+            "option_a": {"option_id": "dim_5_a", "label": "Sharp & Angular", "description": "Square corners, strong borders, bold contrast", "image_prompt": ""},
+            "option_b": {"option_id": "dim_5_b", "label": "Soft & Rounded", "description": "Rounded corners, subtle shadows, gentle edges", "image_prompt": ""},
+        },
+    ]
+
+
 async def plan_research(query: str, context: dict | None = None) -> list[dict]:
     """Use Claude to plan research angles for a query.
 

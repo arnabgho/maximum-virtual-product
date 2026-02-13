@@ -130,6 +130,94 @@ async def generate_artifact_image(artifact: dict, context: str, design_context: 
 
 
 ProgressCallback = Callable[[str, bool, str | None], Coroutine[Any, Any, None]]
+DesignProgressCallback = Callable[[str, str, bool, str | None], Coroutine[Any, Any, None]]
+
+
+async def generate_design_pair_images(
+    project_id: str,
+    dimensions: list[dict],
+    on_progress: DesignProgressCallback | None = None,
+) -> dict[str, str]:
+    """Generate images for design preference pairs.
+
+    Takes dimension dicts with option_a/option_b containing image_prompt fields.
+    Returns dict mapping option_id -> public image URL.
+    """
+    settings = get_settings()
+    if not settings.GEMINI_API_KEY:
+        logger.info("GEMINI_API_KEY not set, skipping design image generation")
+        return {}
+
+    async def _generate_one(option: dict, dimension_id: str) -> tuple[str, str | None]:
+        option_id = option.get("option_id", "")
+        prompt = option.get("image_prompt", "")
+        if not prompt:
+            if on_progress:
+                await on_progress(option_id, dimension_id, False, None)
+            return option_id, None
+
+        client = _get_client()
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        client.models.generate_content,
+                        model="gemini-3-pro-image-preview",
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            response_modalities=["IMAGE", "TEXT"],
+                        ),
+                    ),
+                    timeout=TIMEOUT_SECONDS,
+                )
+
+                if response.candidates:
+                    for part in response.candidates[0].content.parts:
+                        if part.inline_data and part.inline_data.mime_type.startswith("image/"):
+                            img_bytes = part.inline_data.data
+                            mime = part.inline_data.mime_type
+                            ext = "jpg" if "jpeg" in mime else mime.split("/")[-1]
+                            destination = f"{project_id}/design_prefs/{option_id}.{ext}"
+                            db = get_db()
+                            public_url = db.upload_image(img_bytes, destination, content_type=mime)
+                            if on_progress:
+                                await on_progress(option_id, dimension_id, True, public_url)
+                            return option_id, public_url
+
+                logger.warning("No image for design option %s (attempt %d)", option_id, attempt + 1)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout for design option %s (attempt %d)", option_id, attempt + 1)
+            except Exception as e:
+                logger.warning("Error for design option %s (attempt %d): %s", option_id, attempt + 1, str(e))
+
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(INITIAL_BACKOFF * (2 ** attempt))
+
+        if on_progress:
+            await on_progress(option_id, dimension_id, False, None)
+        return option_id, None
+
+    # Collect all options
+    tasks = []
+    for dim in dimensions:
+        dim_id = dim.get("dimension_id", "")
+        for key in ("option_a", "option_b"):
+            option = dim.get(key, {})
+            if option:
+                tasks.append(_generate_one(option, dim_id))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    image_map: dict[str, str] = {}
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error("Design image task failed: %s", result)
+            continue
+        option_id, image_url = result
+        if image_url:
+            image_map[option_id] = image_url
+
+    return image_map
 
 
 async def generate_images_parallel(

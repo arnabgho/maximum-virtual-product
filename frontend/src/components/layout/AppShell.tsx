@@ -1,14 +1,30 @@
+import { useEffect, useRef } from "react";
 import { PhaseNav } from "./PhaseNav";
 import { Sidebar } from "./Sidebar";
 import { FloatingProgress } from "./FloatingProgress";
 import { ProjectCanvas } from "../canvas/ProjectCanvas";
 import { ArtifactDetail } from "../artifacts/ArtifactDetail";
+import { PlanWizardModal } from "../plan/PlanWizardModal";
+import { ResearchWizardModal } from "../research/ResearchWizardModal";
 import { useProjectStore } from "../../stores/projectStore";
 import { useWebSocket } from "../../hooks/useWebSocket";
 
 export function AppShell() {
-  const { project } = useProjectStore();
+  const { project, artifacts, showPlanWizard, setShowPlanWizard } = useProjectStore();
   useWebSocket(project?.id ?? null);
+
+  // Auto-open plan wizard when entering plan phase with no plan artifacts
+  const prevPhaseRef = useRef(project?.phase);
+  useEffect(() => {
+    const currentPhase = project?.phase;
+    if (currentPhase === "plan" && prevPhaseRef.current !== "plan") {
+      const hasPlanArtifacts = artifacts.some((a) => a.phase === "plan");
+      if (!hasPlanArtifacts) {
+        setShowPlanWizard(true);
+      }
+    }
+    prevPhaseRef.current = currentPhase;
+  }, [project?.phase, artifacts, setShowPlanWizard]);
 
   return (
     <div className="h-screen flex flex-col bg-[var(--bg-deep)]">
@@ -21,6 +37,8 @@ export function AppShell() {
       </div>
       <ArtifactDetail />
       <FloatingProgress />
+      {showPlanWizard && <PlanWizardModal />}
+      <ResearchWizardModal />
     </div>
   );
 }

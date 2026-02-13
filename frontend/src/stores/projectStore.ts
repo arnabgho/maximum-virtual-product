@@ -9,6 +9,7 @@ import type {
   Phase,
   ClarifyingQuestion,
   PlanDirection,
+  DesignDimension,
 } from "../types";
 import { api } from "../api/client";
 
@@ -36,6 +37,10 @@ interface ProjectStore {
   planContext: Record<string, string>;
   selectedDirection: PlanDirection | null;
   planClarifyLoading: boolean;
+  showPlanWizard: boolean;
+  showResearchWizard: boolean;
+  designDimensions: DesignDimension[];
+  designPreferences: Record<string, string>;
 
   // Actions
   listProjects: () => Promise<void>;
@@ -68,6 +73,12 @@ interface ProjectStore {
   setPlanContext: (context: Record<string, string>) => void;
   setSelectedDirection: (direction: PlanDirection | null) => void;
   setPlanClarifyLoading: (v: boolean) => void;
+  setShowPlanWizard: (v: boolean) => void;
+  setShowResearchWizard: (v: boolean) => void;
+  setDesignDimensions: (dims: DesignDimension[]) => void;
+  updateDesignOptionImage: (optionId: string, imageUrl: string) => void;
+  setDesignPreferences: (prefs: Record<string, string>) => void;
+  clearDesignState: () => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -98,6 +109,10 @@ const initialState = {
   planContext: {} as Record<string, string>,
   selectedDirection: null as PlanDirection | null,
   planClarifyLoading: false,
+  showPlanWizard: false,
+  showResearchWizard: false,
+  designDimensions: [] as DesignDimension[],
+  designPreferences: {} as Record<string, string>,
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -235,6 +250,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setPlanContext: (context) => set({ planContext: context }),
   setSelectedDirection: (direction) => set({ selectedDirection: direction }),
   setPlanClarifyLoading: (v) => set({ planClarifyLoading: v }),
+  setShowPlanWizard: (v) => set({ showPlanWizard: v }),
+  setShowResearchWizard: (v) => set({ showResearchWizard: v }),
+  setDesignDimensions: (dims) => set({ designDimensions: dims }),
+  updateDesignOptionImage: (optionId, imageUrl) =>
+    set((s) => ({
+      designDimensions: s.designDimensions.map((dim) => ({
+        ...dim,
+        option_a: dim.option_a.option_id === optionId ? { ...dim.option_a, image_url: imageUrl } : dim.option_a,
+        option_b: dim.option_b.option_id === optionId ? { ...dim.option_b, image_url: imageUrl } : dim.option_b,
+      })),
+    })),
+  setDesignPreferences: (prefs) => set({ designPreferences: prefs }),
+  clearDesignState: () => set({ designDimensions: [], designPreferences: {} }),
 
   reset: () => set(initialState),
 

@@ -93,11 +93,24 @@ export function useWebSocket(projectId: string | null) {
           store.setImageGenerationProgress(null);
           break;
 
+        case "design_image_ready":
+          store.updateDesignOptionImage(
+            event.data.option_id as string,
+            event.data.image_url as string
+          );
+          break;
+
+        case "design_images_complete":
+          // Images already streamed individually — no-op
+          break;
+
         case "plan_complete":
           store.setPlanning(false);
           store.setPlanClarifyingQuestions([]);
           store.setSelectedDirection(null);
           store.setPlanContext({});
+          store.clearDesignState();
+          store.setShowPlanWizard(false);
           break;
 
         case "error":
