@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import time
 from fastapi import WebSocket
 from collections import defaultdict
 
@@ -13,12 +14,23 @@ class WSManager:
     def __init__(self):
         self._connections: dict[str, list[WebSocket]] = defaultdict(list)
         self._lock = asyncio.Lock()
+        self._event_buffer: dict[str, list[tuple[float, dict]]] = defaultdict(list)
+        self._buffer_ttl = 60  # seconds
 
     async def connect(self, project_id: str, websocket: WebSocket):
         await websocket.accept()
+        # Replay buffered events to the new connection
+        now = time.time()
+        for ts, payload in self._event_buffer.get(project_id, []):
+            if now - ts < self._buffer_ttl:
+                try:
+                    await websocket.send_text(json.dumps(payload, default=str))
+                except Exception:
+                    logger.warning("Failed to replay event to new WS client: project=%s", project_id)
+                    return  # connection already dead
         async with self._lock:
             self._connections[project_id].append(websocket)
-        logger.info("WS client connected: project=%s", project_id)
+        logger.info("WS client connected: project=%s (replayed buffered events)", project_id)
 
     async def disconnect(self, project_id: str, websocket: WebSocket):
         async with self._lock:
@@ -50,8 +62,15 @@ class WSManager:
 
     async def send_event(self, project_id: str, event_type: str, data: dict):
         """Send a typed event to all connections for a project."""
-        logger.debug("WS event: type=%s project=%s", event_type, project_id)
-        await self.broadcast(project_id, {"type": event_type, "data": data})
+        payload = {"type": event_type, "data": data}
+        # Buffer the event
+        now = time.time()
+        buf = self._event_buffer[project_id]
+        buf.append((now, payload))
+        # Prune expired entries
+        self._event_buffer[project_id] = [(t, d) for t, d in buf if now - t < self._buffer_ttl]
+        logger.debug("WS event: type=%s project=%s (buffer=%d)", event_type, project_id, len(self._event_buffer[project_id]))
+        await self.broadcast(project_id, payload)
 
 
 # Singleton
