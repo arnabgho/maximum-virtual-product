@@ -36,6 +36,15 @@ export default function App() {
     listProjects();
   }, [listProjects]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get("project");
+    if (projectId && !project) {
+      openProject(projectId);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [openProject, project]);
+
   const handleContinueToDescribe = useCallback(() => {
     if (!inputValue.trim()) return;
     setHomeState("describing");

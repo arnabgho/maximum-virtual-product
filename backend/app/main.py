@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import artifacts, feedback, plan, projects, research, video
+from app.routers import artifacts, feedback, plan, projects, research, video, export, plan_directions
 from app.ws.handlers import handle_project_ws
 from app.ws.manager import get_ws_manager
 
@@ -44,6 +44,8 @@ app.include_router(feedback.router)
 app.include_router(research.router)
 app.include_router(plan.router)
 app.include_router(video.router)
+app.include_router(export.router)
+app.include_router(plan_directions.router)
 
 
 @app.get("/health")

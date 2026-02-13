@@ -1,7 +1,6 @@
 """Gemini image generation service for artifact visuals."""
 
 import asyncio
-import base64
 import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
@@ -10,6 +9,7 @@ from google import genai
 from google.genai import types
 
 from app.config import get_settings
+from app.db.supabase import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +64,12 @@ def _get_client() -> genai.Client:
 async def generate_artifact_image(artifact: dict, context: str) -> str | None:
     """Generate an image for a single artifact using Gemini.
 
-    Returns a base64 data URL or None on failure.
+    Returns a public Supabase Storage URL or None on failure.
     """
     prompt = _get_prompt(artifact)
     client = _get_client()
+    artifact_id = artifact.get("id", "unknown")
+    project_id = artifact.get("project_id", "unknown")
 
     for attempt in range(MAX_RETRIES):
         try:
@@ -83,14 +85,17 @@ async def generate_artifact_image(artifact: dict, context: str) -> str | None:
                 timeout=TIMEOUT_SECONDS,
             )
 
-            # Extract image from response
+            # Extract image from response and upload to Supabase Storage
             if response.candidates:
                 for part in response.candidates[0].content.parts:
                     if part.inline_data and part.inline_data.mime_type.startswith("image/"):
                         img_bytes = part.inline_data.data
                         mime = part.inline_data.mime_type
-                        b64 = base64.b64encode(img_bytes).decode("utf-8")
-                        return f"data:{mime};base64,{b64}"
+                        ext = "jpg" if "jpeg" in mime else mime.split("/")[-1]
+                        destination = f"{project_id}/{artifact_id}.{ext}"
+                        db = get_db()
+                        public_url = db.upload_image(img_bytes, destination, content_type=mime)
+                        return public_url
 
             logger.warning(
                 "No image in Gemini response for artifact %s (attempt %d)",
@@ -128,7 +133,7 @@ async def generate_images_parallel(
 ) -> dict[str, str]:
     """Generate images for all artifacts concurrently.
 
-    Returns a dict mapping artifact_id -> image data URL for successful generations.
+    Returns a dict mapping artifact_id -> public image URL for successful generations.
     """
     settings = get_settings()
     if not settings.GEMINI_API_KEY:
