@@ -16,6 +16,7 @@ export function ReviewMode() {
     artifacts,
     feedback,
     reviewArtifactIndex,
+    reviewPhase,
     batchRegenerateProgress,
     setReviewMode,
     setReviewArtifactIndex,
@@ -26,12 +27,12 @@ export function ReviewMode() {
     null
   );
 
-  const planArtifacts = useMemo(
-    () => artifacts.filter((a) => a.phase === "plan"),
-    [artifacts]
+  const reviewArtifacts = useMemo(
+    () => artifacts.filter((a) => a.phase === (reviewPhase ?? "plan")),
+    [artifacts, reviewPhase]
   );
 
-  const currentArtifact = planArtifacts[reviewArtifactIndex] ?? null;
+  const currentArtifact = reviewArtifacts[reviewArtifactIndex] ?? null;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -54,7 +55,7 @@ export function ReviewMode() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [reviewArtifactIndex, setReviewMode, setReviewArtifactIndex]);
 
-  if (!project || planArtifacts.length === 0) return null;
+  if (!project || reviewArtifacts.length === 0) return null;
 
   const artifactFeedback = feedback.filter(
     (f) => f.artifact_id === currentArtifact?.id
@@ -62,7 +63,7 @@ export function ReviewMode() {
   const totalPending = feedback.filter(
     (f) =>
       f.status === "pending" &&
-      planArtifacts.some((a) => a.id === f.artifact_id)
+      reviewArtifacts.some((a) => a.id === f.artifact_id)
   ).length;
 
   const hasSpatialSupport =
@@ -79,9 +80,9 @@ export function ReviewMode() {
       <ReviewHeader
         artifact={currentArtifact}
         index={reviewArtifactIndex}
-        total={planArtifacts.length}
+        total={reviewArtifacts.length}
         totalPending={totalPending}
-        planArtifacts={planArtifacts}
+        reviewArtifacts={reviewArtifacts}
         feedback={feedback}
         onPrev={() => setReviewArtifactIndex(reviewArtifactIndex - 1)}
         onNext={() => setReviewArtifactIndex(reviewArtifactIndex + 1)}
@@ -172,7 +173,7 @@ function ReviewHeader({
   index,
   total,
   totalPending,
-  planArtifacts,
+  reviewArtifacts,
   feedback,
   onPrev,
   onNext,
@@ -184,7 +185,7 @@ function ReviewHeader({
   index: number;
   total: number;
   totalPending: number;
-  planArtifacts: Artifact[];
+  reviewArtifacts: Artifact[];
   feedback: Feedback[];
   onPrev: () => void;
   onNext: () => void;
@@ -326,7 +327,7 @@ function ReviewHeader({
 
       {/* Thumbnail strip */}
       <div className="h-14 flex items-center px-4 gap-1.5 overflow-x-auto border-t border-[var(--border-dim)]/50">
-        {planArtifacts.map((a, i) => {
+        {reviewArtifacts.map((a, i) => {
           const isActive = i === index;
           const hasPending = feedback.some(
             (f) => f.artifact_id === a.id && f.status === "pending"
@@ -367,6 +368,46 @@ function ReviewHeader({
 }
 
 // ---------------------------------------------------------------------------
+// ZoomControls — HUD-styled zoom bar for mermaid diagrams
+// ---------------------------------------------------------------------------
+
+function ZoomControls({
+  zoom,
+  setZoom,
+}: {
+  zoom: number;
+  setZoom: (fn: (z: number) => number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <button
+        onClick={() => setZoom((z) => Math.max(0.25, z - 0.25))}
+        className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono-hud text-[var(--text-secondary)] bg-[var(--bg-elevated)] border border-[var(--border-dim)] hover:text-[var(--accent-cyan)] hover:border-[var(--accent-cyan)]/50 transition-colors"
+      >
+        -
+      </button>
+      <span className="text-[11px] font-mono-hud text-[var(--text-muted)] w-10 text-center tabular-nums">
+        {Math.round(zoom * 100)}%
+      </span>
+      <button
+        onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
+        className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono-hud text-[var(--text-secondary)] bg-[var(--bg-elevated)] border border-[var(--border-dim)] hover:text-[var(--accent-cyan)] hover:border-[var(--accent-cyan)]/50 transition-colors"
+      >
+        +
+      </button>
+      {zoom !== 1 && (
+        <button
+          onClick={() => setZoom(() => 1)}
+          className="px-2 py-0.5 rounded text-[10px] font-mono-hud text-[var(--text-muted)] bg-[var(--bg-elevated)] border border-[var(--border-dim)] hover:text-[var(--accent-cyan)] hover:border-[var(--accent-cyan)]/50 transition-colors"
+        >
+          Reset
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // AnnotatedImage — core Figma-like drawing interaction
 // ---------------------------------------------------------------------------
 
@@ -384,6 +425,8 @@ function AnnotatedImage({
   onAddFeedback: (comment: string, bounds: SpatialBounds) => Promise<void>;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isMermaid = !artifact.image_url && artifact.type === "mermaid";
+  const [zoom, setZoom] = useState(1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(
     null
@@ -394,6 +437,22 @@ function AnnotatedImage({
   } | null>(null);
   const [pendingBounds, setPendingBounds] = useState<SpatialBounds | null>(
     null
+  );
+
+  // Reset zoom when navigating between artifacts
+  useEffect(() => {
+    setZoom(1);
+  }, [artifact.id]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (!isMermaid) return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom((z) => Math.min(3, Math.max(0.25, z - e.deltaY * 0.002)));
+      }
+    },
+    [isMermaid]
   );
 
   const toPercent = useCallback(
@@ -452,74 +511,89 @@ function AnnotatedImage({
   const numberedFeedback = feedback.filter((f) => f.bounds);
 
   return (
-    <div className="relative max-w-full max-h-full">
+    <div className="relative max-w-full max-h-full flex flex-col">
+      {isMermaid && <ZoomControls zoom={zoom} setZoom={setZoom} />}
+
       <div
-        ref={wrapperRef}
-        className="relative select-none"
-        style={{ cursor: isDrawing ? "crosshair" : "crosshair" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
-          if (isDrawing) handleMouseUp();
-        }}
+        className="overflow-auto max-h-[calc(100vh-14rem)]"
+        onWheel={handleWheel}
       >
-        {/* Content: image or mermaid */}
-        {artifact.image_url ? (
-          <img
-            src={artifact.image_url}
-            alt={artifact.title}
-            className="max-w-full max-h-[calc(100vh-14rem)] rounded-lg border border-[var(--border-dim)] pointer-events-none"
-            draggable={false}
-          />
-        ) : artifact.type === "mermaid" ? (
-          <MermaidStatic content={artifact.content} />
-        ) : null}
+        <div
+          ref={wrapperRef}
+          className="relative select-none"
+          style={{
+            cursor: "crosshair",
+            ...(isMermaid
+              ? {
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top left",
+                }
+              : {}),
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => {
+            if (isDrawing) handleMouseUp();
+          }}
+        >
+          {/* Content: image or mermaid */}
+          {artifact.image_url ? (
+            <img
+              src={artifact.image_url}
+              alt={artifact.title}
+              className="max-w-full max-h-[calc(100vh-14rem)] rounded-lg border border-[var(--border-dim)] pointer-events-none"
+              draggable={false}
+            />
+          ) : artifact.type === "mermaid" ? (
+            <MermaidStatic content={artifact.content} />
+          ) : null}
 
-        {/* Existing annotations */}
-        {numberedFeedback.map((f, idx) => {
-          const b = f.bounds!;
-          const isHovered = hoveredFeedbackId === f.id;
-          const isAddressed = f.status === "addressed";
-          const color = isAddressed
-            ? "var(--accent-green)"
-            : "var(--accent-amber)";
-          return (
-            <div
-              key={f.id}
-              className="absolute pointer-events-auto transition-all"
-              style={{
-                left: `${b.x * 100}%`,
-                top: `${b.y * 100}%`,
-                width: `${b.w * 100}%`,
-                height: `${b.h * 100}%`,
-                border: `2px dashed ${color}`,
-                backgroundColor: isHovered
-                  ? `color-mix(in srgb, ${color} 20%, transparent)`
-                  : `color-mix(in srgb, ${color} 8%, transparent)`,
-                zIndex: isHovered ? 20 : 10,
-              }}
-              onMouseEnter={() => onHoverFeedback(f.id)}
-              onMouseLeave={() => onHoverFeedback(null)}
-            >
-              {/* Numbered marker */}
+          {/* Existing annotations */}
+          {numberedFeedback.map((f, idx) => {
+            const b = f.bounds!;
+            const isHovered = hoveredFeedbackId === f.id;
+            const isAddressed = f.status === "addressed";
+            const color = isAddressed
+              ? "var(--accent-green)"
+              : "var(--accent-amber)";
+            return (
               <div
-                className="absolute -top-3 -left-3 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                key={f.id}
+                className="absolute pointer-events-auto transition-all"
                 style={{
-                  backgroundColor: color,
-                  color: "black",
+                  left: `${b.x * 100}%`,
+                  top: `${b.y * 100}%`,
+                  width: `${b.w * 100}%`,
+                  height: `${b.h * 100}%`,
+                  border: `2px dashed ${color}`,
+                  backgroundColor: isHovered
+                    ? `color-mix(in srgb, ${color} 20%, transparent)`
+                    : `color-mix(in srgb, ${color} 8%, transparent)`,
+                  zIndex: isHovered ? 20 : 10,
                 }}
+                onMouseEnter={() => onHoverFeedback(f.id)}
+                onMouseLeave={() => onHoverFeedback(null)}
               >
-                {idx + 1}
+                {/* Numbered marker */}
+                <div
+                  className="absolute -top-3 -left-3 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{
+                    backgroundColor: color,
+                    color: "black",
+                  }}
+                >
+                  {idx + 1}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
-        {/* Drawing indicator */}
-        {isDrawing && drawStart && drawCurrent && (
-          <DrawingIndicator start={drawStart} current={drawCurrent} />
-        )}
+          {/* Drawing indicator */}
+          {isDrawing && drawStart && drawCurrent && (
+            <DrawingIndicator start={drawStart} current={drawCurrent} />
+          )}
+        </div>
       </div>
 
       {/* Comment modal after drawing */}
@@ -556,7 +630,7 @@ function MermaidStatic({ content }: { content: string }) {
   return (
     <div
       ref={ref}
-      className="flex items-center justify-center p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-dim)] max-h-[calc(100vh-14rem)] overflow-auto pointer-events-none"
+      className="flex items-center justify-center p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-dim)] pointer-events-none"
     />
   );
 }
@@ -695,6 +769,7 @@ function CommentSidebar({
 }) {
   const [textComment, setTextComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(true);
 
   const pendingCount = feedback.filter((f) => f.status === "pending").length;
   const spatialFeedback = feedback.filter((f) => f.bounds);
@@ -724,6 +799,43 @@ function CommentSidebar({
           </span>
         )}
       </div>
+
+      {/* Artifact content section — only for non-mermaid spatial artifacts */}
+      {artifact.type !== "mermaid" && artifact.content && (
+        <div className="border-b border-[var(--border-dim)]">
+          <button
+            onClick={() => setContentExpanded((prev) => !prev)}
+            className="w-full p-3 flex items-center justify-between text-xs font-mono-hud text-[var(--text-muted)] uppercase tracking-wider hover:text-[var(--text-secondary)] transition-colors"
+          >
+            Content
+            <svg
+              className={`w-3 h-3 transition-transform ${contentExpanded ? "rotate-180" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <AnimatePresence>
+            {contentExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="px-3 pb-3 max-h-60 overflow-y-auto text-xs">
+                  <MarkdownContent content={artifact.content} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Comments list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">

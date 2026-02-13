@@ -32,6 +32,7 @@ interface ProjectStore {
   isRegenerating: string | null; // artifact ID being regenerated
   reviewMode: boolean;
   reviewArtifactIndex: number;
+  reviewPhase: string | null;
   batchRegenerateProgress: {
     total: number;
     completed: number;
@@ -127,6 +128,7 @@ const initialState = {
   isRegenerating: null as string | null,
   reviewMode: false,
   reviewArtifactIndex: 0,
+  reviewPhase: null as string | null,
   batchRegenerateProgress: null as {
     total: number;
     completed: number;
@@ -193,7 +195,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ project: updated });
   },
 
-  setSelectedArtifact: (id) => set({ selectedArtifactId: id }),
+  setSelectedArtifact: (id) => {
+    if (id === null) {
+      set({ selectedArtifactId: null });
+      return;
+    }
+    const { artifacts } = get();
+    const artifact = artifacts.find((a) => a.id === id);
+    if (!artifact) return;
+    const phaseArtifacts = artifacts.filter((a) => a.phase === artifact.phase);
+    const idx = phaseArtifacts.findIndex((a) => a.id === id);
+    if (idx < 0) return;
+    set({
+      selectedArtifactId: null,
+      reviewMode: true,
+      reviewArtifactIndex: idx,
+      reviewPhase: artifact.phase,
+    });
+  },
 
   addArtifact: (artifact) =>
     set((s) => {
@@ -268,12 +287,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         : null,
     })),
   setRegenerating: (artifactId) => set({ isRegenerating: artifactId }),
-  setReviewMode: (v) => set({ reviewMode: v, ...(v ? {} : { reviewArtifactIndex: 0 }) }),
+  setReviewMode: (v) => set({ reviewMode: v, ...(v ? {} : { reviewArtifactIndex: 0, reviewPhase: null }) }),
   setReviewArtifactIndex: (i) => {
-    const { artifacts, project } = get();
-    if (!project) return;
-    const planArtifacts = artifacts.filter((a) => a.phase === "plan");
-    const clamped = Math.max(0, Math.min(i, planArtifacts.length - 1));
+    const { artifacts, reviewPhase } = get();
+    if (!reviewPhase) return;
+    const phaseArtifacts = artifacts.filter((a) => a.phase === reviewPhase);
+    const clamped = Math.max(0, Math.min(i, phaseArtifacts.length - 1));
     set({ reviewArtifactIndex: clamped });
   },
   setBatchRegenerateProgress: (progress) => set({ batchRegenerateProgress: progress }),

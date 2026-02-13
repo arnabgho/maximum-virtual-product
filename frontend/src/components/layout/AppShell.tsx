@@ -4,7 +4,7 @@ import { PhaseNav } from "./PhaseNav";
 import { Sidebar } from "./Sidebar";
 import { FloatingProgress } from "./FloatingProgress";
 import { ProjectCanvas } from "../canvas/ProjectCanvas";
-import { ArtifactDetail } from "../artifacts/ArtifactDetail";
+
 import { PlanWizardModal } from "../plan/PlanWizardModal";
 import { ResearchWizardModal } from "../research/ResearchWizardModal";
 import { ReviewMode } from "../review/ReviewMode";
@@ -37,7 +37,6 @@ export function AppShell() {
           <ProjectCanvas />
         </main>
       </div>
-      <ArtifactDetail />
       <FloatingProgress />
       {showPlanWizard && <PlanWizardModal />}
       <ResearchWizardModal />
