@@ -1,0 +1,1 @@
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS plan_directions JSONB DEFAULT '[]';

@@ -115,12 +115,7 @@ async def run_plan(
 
     # Broadcast connections
     for conn in connections:
-        await ws_manager.send_event(project_id, "connection_created", {
-            "from_artifact_id": conn.from_artifact_id,
-            "to_artifact_id": conn.to_artifact_id,
-            "label": conn.label,
-            "connection_type": conn.connection_type,
-        })
+        await ws_manager.send_event(project_id, "connection_created", conn.model_dump())
 
     # Generate images for plan components (skip mermaid artifacts)
     imageable = [a for a in plan_artifacts if a.type != "mermaid"]

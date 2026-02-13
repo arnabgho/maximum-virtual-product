@@ -49,13 +49,13 @@ export function ConnectionEdge({
             style={{
               position: "absolute",
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              background: "#1e1e2e",
+              background: "#0f1729",
               color: color,
               fontSize: 10,
               fontWeight: 600,
               padding: "2px 6px",
               borderRadius: 4,
-              border: `1px solid ${color}40`,
+              border: `1px solid ${color}30`,
               pointerEvents: "none",
             }}
           >

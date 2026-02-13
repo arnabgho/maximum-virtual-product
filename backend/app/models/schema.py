@@ -16,6 +16,7 @@ class Project(BaseModel):
     title: str
     description: str = ""
     phase: str = "research"  # "research" or "plan"
+    plan_directions: list[dict] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

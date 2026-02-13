@@ -87,6 +87,14 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager, *, co
     angles = await claude_service.plan_research(query, context=context)
     logger.info("Planned %d research angles", len(angles))
 
+    # Broadcast planned directions to the frontend
+    await ws_manager.send_event(project_id, "research_directions_planned", {
+        "angles": [
+            {"angle": a.get("angle", "Research"), "sub_query": a.get("sub_query", "")}
+            for a in angles
+        ],
+    })
+
     # Step 2: Run sub-agents in parallel
     logger.info("Spawning %d research agents", len(angles))
     tasks = []
@@ -203,6 +211,7 @@ async def run_research(project_id: str, query: str, ws_manager: WSManager, *, co
             query, context or {}, artifact_dicts
         )
         logger.info("Generated %d plan directions for project=%s", len(directions), project_id)
+        await db.update_project(project_id, {"plan_directions": directions})
         await ws_manager.send_event(project_id, "plan_directions_ready", {
             "directions": directions,
         })

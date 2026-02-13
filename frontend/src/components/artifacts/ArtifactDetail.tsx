@@ -39,7 +39,7 @@ export function ArtifactDetail() {
         >
           <motion.div
             key="modal"
-            className="max-w-4xl w-full max-h-[90vh] bg-[#1a1a2e] border border-[#3a3a4e] rounded-xl shadow-2xl flex flex-col overflow-hidden mx-4"
+            className="max-w-4xl w-full max-h-[90vh] bg-[var(--bg-surface)] border border-[var(--border-dim)] rounded-xl shadow-2xl flex flex-col overflow-hidden mx-4"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -47,7 +47,7 @@ export function ArtifactDetail() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-5 border-b border-[#3a3a4e] flex items-start justify-between shrink-0">
+            <div className="p-5 border-b border-[var(--border-dim)] flex items-start justify-between shrink-0">
               <div>
                 <h2 className="text-xl font-semibold text-white">
                   {artifact.title}
@@ -58,7 +58,7 @@ export function ArtifactDetail() {
               </div>
               <button
                 onClick={handleClose}
-                className="text-zinc-500 hover:text-white text-2xl leading-none px-1"
+                className="text-[var(--text-muted)] hover:text-[var(--accent-cyan)] text-2xl leading-none px-1"
               >
                 &times;
               </button>
@@ -67,12 +67,12 @@ export function ArtifactDetail() {
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto">
               {artifact.source_url && (
-                <div className="px-5 py-2 border-b border-[#3a3a4e]">
+                <div className="px-5 py-2 border-b border-[var(--border-dim)]">
                   <a
                     href={artifact.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-indigo-400 hover:underline truncate block"
+                    className="text-xs text-[var(--accent-cyan)] hover:underline truncate block"
                   >
                     {artifact.source_url}
                   </a>
@@ -87,7 +87,7 @@ export function ArtifactDetail() {
                   <img
                     src={artifact.image_url}
                     alt={artifact.title}
-                    className={`w-full rounded-lg border border-[#3a3a4e] ${imageExpanded ? "" : "max-h-80 object-cover"}`}
+                    className={`w-full rounded-lg border border-[var(--border-dim)] ${imageExpanded ? "" : "max-h-80 object-cover"}`}
                   />
                   <p className="text-xs text-zinc-500 mt-1 text-center">
                     {imageExpanded ? "Click to collapse" : "Click to expand"}
@@ -104,7 +104,7 @@ export function ArtifactDetail() {
               </div>
 
               {artifact.references.length > 0 && (
-                <div className="px-5 py-3 border-t border-[#3a3a4e]">
+                <div className="px-5 py-3 border-t border-[var(--border-dim)]">
                   <h4 className="text-xs font-semibold text-zinc-500 mb-1">
                     References
                   </h4>
@@ -113,7 +113,7 @@ export function ArtifactDetail() {
                       <button
                         key={ref}
                         onClick={() => setSelectedArtifact(ref)}
-                        className="text-xs bg-indigo-600/20 text-indigo-300 px-2 py-0.5 rounded font-mono hover:bg-indigo-600/30"
+                        className="badge-cyan font-mono-hud text-xs px-2 py-0.5 rounded hover:opacity-80"
                       >
                         {ref}
                       </button>
@@ -122,7 +122,7 @@ export function ArtifactDetail() {
                 </div>
               )}
 
-              <div className="border-t border-[#3a3a4e]">
+              <div className="border-t border-[var(--border-dim)]">
                 <FeedbackPanel artifactId={artifact.id} />
               </div>
             </div>

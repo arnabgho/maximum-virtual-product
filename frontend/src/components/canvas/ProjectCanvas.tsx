@@ -107,7 +107,7 @@ function ProjectCanvasInner() {
   }, [setSelectedArtifact]);
 
   return (
-    <div className="w-full h-full" style={{ background: "#0f0f1a" }}>
+    <div className="w-full h-full" style={{ background: "var(--bg-deep)" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

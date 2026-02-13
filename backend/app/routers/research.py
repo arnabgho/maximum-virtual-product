@@ -15,9 +15,9 @@ router = APIRouter(tags=["research"])
 
 @router.post("/api/clarify")
 async def get_clarifying_questions(data: ClarifyQuery):
-    """Generate clarifying questions for a topic before project creation."""
-    questions = await claude_service.generate_clarifying_questions(data.query, data.description)
-    return {"questions": questions}
+    """Generate clarifying questions and a suggested project name for a topic."""
+    result = await claude_service.generate_clarifying_questions(data.query, data.description)
+    return {"questions": result["questions"], "suggested_name": result["suggested_name"]}
 
 
 # --- project-scoped research routes --------------------------------

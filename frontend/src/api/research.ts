@@ -6,5 +6,5 @@ export const researchApi = {
     api.post<{ status: string }>(`/api/projects/${projectId}/research`, { query, context }),
 
   clarify: (query: string, description: string = "") =>
-    api.post<{ questions: ClarifyingQuestion[] }>(`/api/clarify`, { query, description }),
+    api.post<{ questions: ClarifyingQuestion[]; suggested_name: string }>(`/api/clarify`, { query, description }),
 };

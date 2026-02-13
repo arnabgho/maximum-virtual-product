@@ -62,21 +62,21 @@ export function VideoExport({ phase }: VideoExportProps) {
   };
 
   return (
-    <div className="p-3 border-t border-[#3a3a4e]">
+    <div className="p-3 border-t border-[var(--border-dim)]">
       <button
         onClick={handleExport}
         disabled={status === "generating"}
-        className="w-full py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+        className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
       >
         {status === "generating" ? "Generating Video..." : `Export ${label} Video`}
       </button>
       {status === "done" && (
-        <p className="mt-2 text-xs text-purple-400 text-center">
+        <p className="mt-2 text-xs text-[var(--accent-cyan)] text-center">
           Video added to canvas
         </p>
       )}
       {status === "error" && (
-        <p className="mt-2 text-xs text-red-400 text-center">Video generation failed</p>
+        <p className="mt-2 text-xs text-[var(--accent-red)] text-center">Video generation failed</p>
       )}
     </div>
   );

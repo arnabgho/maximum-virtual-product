@@ -36,6 +36,7 @@ class ResearchAgent(BaseAgent):
         await self.ws.send_event(self.project_id, "agent_started", {
             "agent_id": self.agent_id,
             "focus_area": self.angle_name,
+            "sub_query": self.sub_query,
         })
 
         logger.info("Agent %s started: angle=%r sub_query=%r", self.agent_id, self.angle_name, self.sub_query)

@@ -69,16 +69,15 @@ export function ArtifactCard({
       style={{
         width: "100%",
         height: "100%",
-        background: "#1e1e2e",
-        border: `2px solid ${borderColor}30`,
-        borderRadius: 8,
+        background: "var(--bg-surface)",
+        border: `2px solid ${borderColor}20`,
+        borderRadius: 6,
         padding: 12,
         display: "flex",
         flexDirection: "column",
         cursor: "pointer",
         overflow: "hidden",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily: '"Inter", sans-serif',
         position: "relative",
       }}
     >
@@ -183,7 +182,7 @@ export function ArtifactCard({
         <div
           style={{
             fontSize: 11,
-            color: "#a1a1aa",
+            color: "#7a8ba0",
             lineHeight: 1.4,
             flex: 1,
             overflow: "hidden",
@@ -204,7 +203,7 @@ export function ArtifactCard({
           justifyContent: "space-between",
           marginTop: 8,
           paddingTop: 6,
-          borderTop: "1px solid #3a3a4e",
+          borderTop: "1px solid var(--border-dim)",
         }}
       >
         {/* Copyable ID */}
@@ -215,12 +214,12 @@ export function ArtifactCard({
             alignItems: "center",
             gap: 4,
             padding: "2px 6px",
-            background: "#2a2a3e",
-            border: "1px solid #3a3a4e",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-dim)",
             borderRadius: 4,
             color: "#71717a",
             fontSize: 10,
-            fontFamily: "monospace",
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
             cursor: "pointer",
           }}
         >
