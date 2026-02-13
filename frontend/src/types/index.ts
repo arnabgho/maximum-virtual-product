@@ -16,6 +16,7 @@ export interface Project {
   title: string;
   description: string;
   phase: Phase;
+  plan_directions: PlanDirection[];
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +99,7 @@ export type WSEventType =
   | "artifact_updated"
   | "feedback_addressed"
   | "plan_directions_ready"
+  | "research_directions_planned"
   | "error";
 
 export interface WSEvent {
@@ -111,6 +113,7 @@ export interface AgentStatus {
   status: "running" | "complete" | "error";
   artifact_count: number;
   thinking?: string;
+  sub_query?: string;
 }
 
 export interface ProjectState {

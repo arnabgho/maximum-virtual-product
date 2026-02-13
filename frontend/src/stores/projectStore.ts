@@ -31,6 +31,7 @@ interface ProjectStore {
   clarifyingQuestions: ClarifyingQuestion[];
   planDirections: PlanDirection[];
   researchContext: Record<string, string>;
+  researchDirections: { angle: string; sub_query: string }[];
 
   // Actions
   listProjects: () => Promise<void>;
@@ -56,7 +57,9 @@ interface ProjectStore {
   setRegenerating: (artifactId: string | null) => void;
   setClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
   setPlanDirections: (directions: PlanDirection[]) => void;
+  updateProjectTitle: (id: string, title: string) => Promise<void>;
   setResearchContext: (context: Record<string, string>) => void;
+  setResearchDirections: (directions: { angle: string; sub_query: string }[]) => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -82,6 +85,7 @@ const initialState = {
   clarifyingQuestions: [] as ClarifyingQuestion[],
   planDirections: [] as PlanDirection[],
   researchContext: {} as Record<string, string>,
+  researchDirections: [] as { angle: string; sub_query: string }[],
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -113,7 +117,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       api.get<Group[]>(`/api/projects/${id}/groups`).catch(() => [] as Group[]),
       api.get<Feedback[]>(`/api/projects/${id}/feedback`).catch(() => [] as Feedback[]),
     ]);
-    set({ project, artifacts, connections, groups, feedback });
+    set({ project, artifacts, connections, groups, feedback, planDirections: project.plan_directions ?? [] });
   },
 
   createProject: async (title: string, description = "") => {
@@ -159,7 +163,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     })),
 
   addConnection: (connection) =>
-    set((s) => ({ connections: [...s.connections, connection] })),
+    set((s) => ({
+      connections: s.connections.some((c) => c.id === connection.id)
+        ? s.connections
+        : [...s.connections, connection],
+    })),
 
   addGroup: (group) =>
     set((s) => ({ groups: [...s.groups, group] })),
@@ -181,7 +189,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const existing = s.agents.findIndex((a) => a.agent_id === agent.agent_id);
       if (existing >= 0) {
         const updated = [...s.agents];
-        updated[existing] = agent;
+        updated[existing] = { ...updated[existing], ...agent };
         return { agents: updated };
       }
       return { agents: [...s.agents, agent] };
@@ -202,7 +210,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setRegenerating: (artifactId) => set({ isRegenerating: artifactId }),
   setClarifyingQuestions: (questions) => set({ clarifyingQuestions: questions }),
   setPlanDirections: (directions) => set({ planDirections: directions }),
+  updateProjectTitle: async (id, title) => {
+    const updated = await api.patch<Project>(`/api/projects/${id}`, { title });
+    set((s) => ({
+      project: s.project?.id === id ? { ...s.project, title: updated.title } : s.project,
+      projects: s.projects.map((p) => (p.id === id ? { ...p, title: updated.title } : p)),
+    }));
+  },
   setResearchContext: (context) => set({ researchContext: context }),
+  setResearchDirections: (directions) => set({ researchDirections: directions }),
 
   reset: () => set(initialState),
 
