@@ -387,9 +387,14 @@ export function PlanWizardModal() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <p className="font-mono-hud text-sm text-[var(--text-secondary)] uppercase tracking-wider">
-                  Generating design options...
-                </p>
+                <div className="text-center space-y-1.5">
+                  <p className="font-mono-hud text-sm text-[var(--text-secondary)] uppercase tracking-wider">
+                    Analyzing your direction
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Generating design dimensions & visual options...
+                  </p>
+                </div>
               </motion.div>
             )}
 

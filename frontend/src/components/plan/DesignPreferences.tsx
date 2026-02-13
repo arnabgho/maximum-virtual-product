@@ -71,8 +71,33 @@ export function DesignPreferences({ dimensions, onSubmit, onBack, onSkip }: Prop
 
   if (!dimension) return null;
 
+  // Count loaded images across all dimensions
+  const imagesLoaded = dimensions.reduce((count, dim) => {
+    return count + (dim.option_a.image_url ? 1 : 0) + (dim.option_b.image_url ? 1 : 0);
+  }, 0);
+  const imagesTotal = dimensions.length * 2;
+
   return (
     <div className="space-y-6">
+      {/* Image progress indicator */}
+      {imagesLoaded < imagesTotal && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-dim)]">
+          <div className="w-2 h-2 rounded-full bg-[var(--accent-cyan)] animate-pulse" />
+          <span className="font-mono-hud text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+            Images: {imagesLoaded}/{imagesTotal} generated
+          </span>
+          <div className="flex-1 h-1 rounded-full bg-[var(--bg-deep)] overflow-hidden ml-2">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${(imagesLoaded / imagesTotal) * 100}%`,
+                background: "linear-gradient(90deg, var(--accent-cyan), var(--accent-green))",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between">
         <button
@@ -155,10 +180,13 @@ export function DesignPreferences({ dimensions, onSubmit, onBack, onSkip }: Prop
                   {/* Image area */}
                   <div className="aspect-[4/3] bg-[var(--bg-surface)] relative overflow-hidden">
                     {option.image_url ? (
-                      <img
+                      <motion.img
                         src={option.image_url}
                         alt={option.label}
                         className="w-full h-full object-cover"
+                        initial={{ opacity: 0, scale: 1.05 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

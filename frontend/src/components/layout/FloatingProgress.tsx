@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useProjectStore } from "../../stores/projectStore";
-import type { AgentStatus } from "../../types";
+import type { AgentStatus, PlanStage } from "../../types";
 
 /* ─── Merge directions + agents into unified streams ─── */
 
@@ -76,6 +76,7 @@ export function FloatingProgress() {
     planDescription,
     imageGenerationProgress,
     researchDirections,
+    planStages,
   } = useProjectStore();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -186,6 +187,8 @@ export function FloatingProgress() {
                     agents={agents}
                     researchDirections={researchDirections}
                     isResearching={isResearching}
+                    isPlanning={isPlanning}
+                    planStages={planStages}
                     isActive={isActive}
                     imageGenerationProgress={imageGenerationProgress}
                     hasImageProgress={hasImageProgress}
@@ -208,6 +211,8 @@ function ExpandedContent({
   agents,
   researchDirections,
   isResearching,
+  isPlanning,
+  planStages,
   isActive,
   imageGenerationProgress,
   hasImageProgress,
@@ -215,6 +220,8 @@ function ExpandedContent({
   agents: AgentStatus[];
   researchDirections: { angle: string; sub_query: string }[];
   isResearching: boolean;
+  isPlanning: boolean;
+  planStages: PlanStage[];
   isActive: boolean;
   imageGenerationProgress: { total: number; completed: number } | null;
   hasImageProgress: boolean;
@@ -226,9 +233,13 @@ function ExpandedContent({
   const completedCount = streams.filter((s) => s.status === "complete").length;
   const totalCount = streams.length;
 
+  const artifactStages = planStages.filter((s) => s.detail !== "connection" && s.id !== "images");
+  const connectionStages = planStages.filter((s) => s.detail === "connection");
+  const imageStage = planStages.find((s) => s.id === "images");
+
   return (
     <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-      {/* Planning state — no directions yet */}
+      {/* Research: no directions yet */}
       {isResearching && streams.length === 0 && (
         <div className="text-center py-2">
           <p className="text-xs" style={{ color: "#00d4ff" }}>
@@ -290,8 +301,116 @@ function ExpandedContent({
         </div>
       )}
 
-      {/* Image generation progress */}
-      {hasImageProgress && imageGenerationProgress && (
+      {/* Plan generation stages */}
+      {isPlanning && (
+        <div
+          className="rounded-xl border overflow-hidden"
+          style={{
+            backgroundColor: "rgba(124, 58, 237, 0.08)",
+            borderColor: "rgba(124, 58, 237, 0.25)",
+          }}
+        >
+          {/* Section header */}
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 border-b"
+            style={{ borderBottomColor: "rgba(124, 58, 237, 0.2)" }}
+          >
+            <div
+              className="w-2 h-2 rounded-full animate-pulse flex-shrink-0"
+              style={{
+                backgroundColor: "#a78bfa",
+                boxShadow: "0 0 6px rgba(167, 139, 250, 0.8)",
+              }}
+            />
+            <span className="text-xs font-medium" style={{ color: "#a78bfa" }}>
+              Blueprint Components
+            </span>
+            <span className="text-xs ml-auto tabular-nums" style={{ color: "rgba(167, 139, 250, 0.7)" }}>
+              {artifactStages.length} created
+            </span>
+          </div>
+
+          <div className="px-3 pb-3 pt-1 space-y-0.5">
+            {planStages.length === 0 && (
+              <div className="py-2 text-center">
+                <p className="text-[11px]" style={{ color: "rgba(167, 139, 250, 0.6)" }}>
+                  Analyzing direction & generating components...
+                </p>
+              </div>
+            )}
+
+            {/* Artifact rows */}
+            {artifactStages.map((stage, i) => (
+              <PlanStageRow key={stage.id} stage={stage} index={i} />
+            ))}
+
+            {/* Connections summary */}
+            {connectionStages.length > 0 && (
+              <motion.div
+                className="py-2 flex items-center gap-2"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: "#00ff88", boxShadow: "0 0 6px rgba(0, 255, 136, 0.6)" }}
+                />
+                <span className="text-xs" style={{ color: "#e0f8ff" }}>
+                  Connections
+                </span>
+                <span className="text-[10px] ml-auto" style={{ color: "rgba(0, 255, 136, 0.8)" }}>
+                  {connectionStages.length} linked
+                </span>
+              </motion.div>
+            )}
+
+            {/* Image generation progress */}
+            {imageStage && (
+              <motion.div
+                className="py-2"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${imageStage.status === "running" ? "animate-pulse" : ""}`}
+                    style={{
+                      backgroundColor: imageStage.status === "complete" ? "#00ff88" : "#d946ef",
+                      boxShadow: `0 0 6px ${imageStage.status === "complete" ? "rgba(0, 255, 136, 0.6)" : "rgba(217, 70, 239, 0.6)"}`,
+                    }}
+                  />
+                  <span className="text-xs" style={{ color: "#e0f8ff" }}>
+                    {imageStage.label}
+                  </span>
+                  <span className="text-[10px] ml-auto" style={{ color: imageStage.status === "complete" ? "rgba(0, 255, 136, 0.8)" : "rgba(217, 70, 239, 0.8)" }}>
+                    {imageStage.status === "complete" ? "Done" : imageStage.detail}
+                  </span>
+                </div>
+                {imageStage.status === "running" && imageGenerationProgress && (
+                  <div
+                    className="h-1 rounded-full overflow-hidden ml-3.5"
+                    style={{ backgroundColor: "rgba(217, 70, 239, 0.15)" }}
+                  >
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: "linear-gradient(90deg, #8b5cf6, #d946ef)" }}
+                      animate={{
+                        width: `${(imageGenerationProgress.completed / imageGenerationProgress.total) * 100}%`,
+                      }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Image generation progress (research phase, standalone) */}
+      {!isPlanning && hasImageProgress && imageGenerationProgress && (
         <div
           className="rounded-xl p-3 border"
           style={{
@@ -386,6 +505,36 @@ function StreamRow({ stream, index }: { stream: ResearchStream; index: number })
           {stream.thinking}
         </p>
       )}
+    </motion.div>
+  );
+}
+
+/* ─── Plan stage row ─── */
+
+function PlanStageRow({ stage, index }: { stage: PlanStage; index: number }) {
+  return (
+    <motion.div
+      className="py-2 border-b last:border-b-0"
+      style={{ borderBottomColor: "rgba(124, 58, 237, 0.12)" }}
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.25 }}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+          style={{
+            backgroundColor: "#00ff88",
+            boxShadow: "0 0 6px rgba(0, 255, 136, 0.6)",
+          }}
+        />
+        <span className="text-xs font-medium flex-1 truncate" style={{ color: "#e0f8ff" }}>
+          {stage.label}
+        </span>
+        <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(167, 139, 250, 0.7)" }}>
+          {stage.detail}
+        </span>
+      </div>
     </motion.div>
   );
 }

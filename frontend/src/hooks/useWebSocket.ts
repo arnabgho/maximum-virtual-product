@@ -34,13 +34,32 @@ export function useWebSocket(projectId: string | null) {
           break;
 
         case "artifact_created":
-        case "plan_artifact_created":
           store.addArtifact(event.data.artifact as unknown as Artifact);
           break;
 
-        case "connection_created":
-          store.addConnection(event.data as unknown as ArtifactConnection);
+        case "plan_artifact_created": {
+          const artifact = event.data.artifact as unknown as Artifact;
+          store.addArtifact(artifact);
+          store.addPlanStage({
+            id: artifact.id,
+            label: artifact.title,
+            status: "complete",
+            detail: artifact.type,
+          });
           break;
+        }
+
+        case "connection_created": {
+          const conn = event.data as unknown as ArtifactConnection;
+          store.addConnection(conn);
+          store.addPlanStage({
+            id: conn.id,
+            label: conn.label || "Connection",
+            status: "complete",
+            detail: "connection",
+          });
+          break;
+        }
 
         case "group_created":
           store.addGroup(event.data.group as unknown as Group);
@@ -54,9 +73,17 @@ export function useWebSocket(projectId: string | null) {
           } as AgentStatus);
           break;
 
-        case "images_generating":
-          store.setImageGenerationProgress(event.data.total as number);
+        case "images_generating": {
+          const total = event.data.total as number;
+          store.setImageGenerationProgress(total);
+          store.addPlanStage({
+            id: "images",
+            label: "Generating images",
+            status: "running",
+            detail: `0/${total}`,
+          });
           break;
+        }
 
         case "image_generated":
           store.updateArtifactImage(
@@ -64,6 +91,14 @@ export function useWebSocket(projectId: string | null) {
             event.data.image_url as string
           );
           store.incrementImageGeneration();
+          {
+            const progress = useProjectStore.getState().imageGenerationProgress;
+            if (progress) {
+              store.updatePlanStage("images", {
+                detail: `${progress.completed}/${progress.total}`,
+              });
+            }
+          }
           break;
 
         case "artifact_updated":
@@ -105,12 +140,20 @@ export function useWebSocket(projectId: string | null) {
           break;
 
         case "plan_complete":
+          store.updatePlanStage("images", { status: "complete" });
           store.setPlanning(false);
           store.setPlanClarifyingQuestions([]);
           store.setSelectedDirection(null);
           store.setPlanContext({});
           store.clearDesignState();
           store.setShowPlanWizard(false);
+          // Re-fetch project to ensure canvas is in sync
+          if (projectId) {
+            setTimeout(() => {
+              store.loadProject(projectId);
+              store.clearPlanStages();
+            }, 500);
+          }
           break;
 
         case "error":

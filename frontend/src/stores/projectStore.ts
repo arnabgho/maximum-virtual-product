@@ -10,6 +10,7 @@ import type {
   ClarifyingQuestion,
   PlanDirection,
   DesignDimension,
+  PlanStage,
 } from "../types";
 import { api } from "../api/client";
 
@@ -41,6 +42,7 @@ interface ProjectStore {
   showResearchWizard: boolean;
   designDimensions: DesignDimension[];
   designPreferences: Record<string, string>;
+  planStages: PlanStage[];
 
   // Actions
   listProjects: () => Promise<void>;
@@ -79,6 +81,9 @@ interface ProjectStore {
   updateDesignOptionImage: (optionId: string, imageUrl: string) => void;
   setDesignPreferences: (prefs: Record<string, string>) => void;
   clearDesignState: () => void;
+  addPlanStage: (stage: PlanStage) => void;
+  updatePlanStage: (id: string, updates: Partial<PlanStage>) => void;
+  clearPlanStages: () => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -113,6 +118,7 @@ const initialState = {
   showResearchWizard: false,
   designDimensions: [] as DesignDimension[],
   designPreferences: {} as Record<string, string>,
+  planStages: [] as PlanStage[],
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -225,7 +231,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setResearching: (v, query) =>
     set({ isResearching: v, ...(query !== undefined ? { researchQuery: query } : {}) }),
   setPlanning: (v, description) =>
-    set({ isPlanning: v, ...(description !== undefined ? { planDescription: description } : {}), ...(v ? {} : { imageGenerationProgress: null }) }),
+    set({ isPlanning: v, ...(description !== undefined ? { planDescription: description } : {}), ...(v ? { planStages: [] } : { imageGenerationProgress: null }) }),
   setImageGenerationProgress: (total) =>
     set({ imageGenerationProgress: total != null ? { total, completed: 0 } : null }),
   incrementImageGeneration: () =>
@@ -263,6 +269,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     })),
   setDesignPreferences: (prefs) => set({ designPreferences: prefs }),
   clearDesignState: () => set({ designDimensions: [], designPreferences: {} }),
+
+  addPlanStage: (stage) =>
+    set((s) => {
+      if (s.planStages.some((ps) => ps.id === stage.id)) return s;
+      return { planStages: [...s.planStages, stage] };
+    }),
+  updatePlanStage: (id, updates) =>
+    set((s) => ({
+      planStages: s.planStages.map((ps) =>
+        ps.id === id ? { ...ps, ...updates } : ps
+      ),
+    })),
+  clearPlanStages: () => set({ planStages: [] }),
 
   reset: () => set(initialState),
 

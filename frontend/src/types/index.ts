@@ -126,6 +126,13 @@ export interface WSEvent {
   data: Record<string, unknown>;
 }
 
+export interface PlanStage {
+  id: string;
+  label: string;
+  status: "running" | "complete";
+  detail?: string;
+}
+
 export interface AgentStatus {
   agent_id: string;
   focus_area: string;

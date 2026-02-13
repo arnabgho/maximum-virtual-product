@@ -5,13 +5,28 @@ export function PlanDirections() {
     isPlanning,
     planDescription,
     artifacts,
+    planStages,
+    imageGenerationProgress,
     setShowPlanWizard,
   } = useProjectStore();
 
   const hasPlanArtifacts = artifacts.some((a) => a.phase === "plan");
 
-  // Planning in progress — show spinner
+  // Planning in progress — show real progress
   if (isPlanning) {
+    const artifactCount = planStages.filter((s) => s.detail !== "connection" && s.id !== "images").length;
+    const connectionCount = planStages.filter((s) => s.detail === "connection").length;
+    const imageStage = planStages.find((s) => s.id === "images");
+
+    let stageLabel = "Generating components...";
+    if (imageStage) {
+      stageLabel = imageStage.status === "complete" ? "Finalizing..." : `Generating images ${imageStage.detail || ""}`;
+    } else if (connectionCount > 0) {
+      stageLabel = "Creating connections...";
+    } else if (artifactCount > 0) {
+      stageLabel = "Generating components...";
+    }
+
     return (
       <div className="space-y-3">
         <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-[var(--accent-cyan)]/10 to-[var(--accent-green)]/10 border border-[var(--accent-cyan)]/20 p-4">
@@ -23,14 +38,40 @@ export function PlanDirections() {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-[var(--accent-cyan)] font-mono-hud uppercase tracking-wider">Generating Blueprint</p>
               <p className="text-sm text-white truncate">{planDescription}</p>
             </div>
           </div>
-          <div className="mt-3 h-1 rounded-full bg-[var(--bg-deep)] overflow-hidden">
-            <div className="h-full rounded-full animate-[progress_2s_ease-in-out_infinite]" style={{ width: "60%", background: "linear-gradient(90deg, #00e5ff, #7c3aed)" }} />
+
+          {/* Real progress stats */}
+          <div className="relative mt-3 flex items-center gap-3 text-[10px] font-mono-hud uppercase tracking-wider text-[var(--text-muted)]">
+            {artifactCount > 0 && <span>{artifactCount} components</span>}
+            {connectionCount > 0 && <span>{connectionCount} links</span>}
+            {imageGenerationProgress && (
+              <span>{imageGenerationProgress.completed}/{imageGenerationProgress.total} images</span>
+            )}
           </div>
+
+          {/* Stage label */}
+          <p className="relative mt-1.5 text-[11px] text-[var(--accent-cyan)]/70 font-mono-hud">{stageLabel}</p>
+
+          {/* Progress bar */}
+          {imageGenerationProgress ? (
+            <div className="relative mt-2 h-1 rounded-full bg-[var(--bg-deep)] overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${(imageGenerationProgress.completed / imageGenerationProgress.total) * 100}%`,
+                  background: "linear-gradient(90deg, #00e5ff, #7c3aed)",
+                }}
+              />
+            </div>
+          ) : (
+            <div className="relative mt-2 h-1 rounded-full bg-[var(--bg-deep)] overflow-hidden">
+              <div className="h-full rounded-full animate-[progress_2s_ease-in-out_infinite]" style={{ width: "60%", background: "linear-gradient(90deg, #00e5ff, #7c3aed)" }} />
+            </div>
+          )}
         </div>
       </div>
     );
