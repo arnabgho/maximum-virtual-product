@@ -1,25 +1,7 @@
-import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
-import { researchApi } from "../../api/research";
 
 export function ResearchInput() {
-  const { project, isResearching, researchQuery, setResearching } = useProjectStore();
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!project || !query.trim() || loading) return;
-    setLoading(true);
-    setResearching(true, query.trim());
-    try {
-      await researchApi.start(project.id, query.trim());
-    } catch (e) {
-      console.error("Research failed:", e);
-      setResearching(false);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { isResearching, researchQuery, setShowResearchWizard } = useProjectStore();
 
   if (isResearching) {
     return (
@@ -48,19 +30,14 @@ export function ResearchInput() {
 
   return (
     <div className="space-y-2">
-      <textarea
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="What do you want to research?"
-        rows={3}
-        className="hud-input rounded-lg text-sm resize-none"
-      />
       <button
-        onClick={handleSubmit}
-        disabled={!query.trim() || loading}
-        className="hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider w-full py-2"
+        onClick={() => setShowResearchWizard(true)}
+        className="w-full py-3 hud-btn-primary rounded-lg font-mono-hud text-xs uppercase tracking-wider flex items-center justify-center gap-2"
       >
-        {loading ? "Starting..." : "Research"}
+        + New Research
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+          <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
     </div>
   );

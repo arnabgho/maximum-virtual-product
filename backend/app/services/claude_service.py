@@ -76,6 +76,83 @@ Return ONLY a JSON object, no other text:
         }
 
 
+async def generate_plan_clarifying_questions(
+    direction: dict, research_artifacts: list[dict], project_description: str = ""
+) -> dict:
+    """Generate 2-3 clarifying questions for plan generation based on selected direction.
+
+    Returns: {questions: [{question, options}]}
+    """
+    client = get_client()
+
+    direction_block = ""
+    if direction:
+        direction_block = (
+            f'\nSelected direction: "{direction.get("title", "")}"\n'
+            f'Description: {direction.get("description", "")}\n'
+            f'Key focus: {direction.get("key_focus", "")}\n'
+        )
+
+    description_block = ""
+    if project_description:
+        description_block = f'\nProject description: "{project_description}"\n'
+
+    artifact_summaries = "\n".join(
+        f"- [{a.get('type', '')}] {a.get('title', '')}: {a.get('summary', '')}"
+        for a in research_artifacts[:15]
+    )
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=4000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a product planning assistant. Based on the selected direction and research findings, generate 2-3 clarifying questions that will help create a better product blueprint.
+{direction_block}{description_block}
+Research findings:
+{artifact_summaries}
+
+Ask questions about:
+- Preferred tech stack or implementation approach
+- MVP scope vs full product scope
+- Target users and their primary needs
+- Key priorities (speed to market, scalability, UX quality, etc.)
+
+Each question should have 3-4 answer options. Return ONLY a JSON object:
+{{
+  "questions": [
+    {{"question": "What tech stack do you prefer?", "options": ["React + Node.js", "Next.js full-stack", "Python + React", "No preference"]}},
+    {{"question": "What scope should this plan cover?", "options": ["MVP / proof of concept", "Full product v1", "Enterprise-grade system"]}}
+  ]
+}}""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        result = _parse_json_object(text)
+        if "questions" in result:
+            return result
+        raise ValueError("Missing questions key")
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        return {
+            "questions": [
+                {
+                    "question": "What scope should this plan cover?",
+                    "options": [
+                        "MVP / proof of concept",
+                        "Full product v1",
+                        "Enterprise-grade system",
+                    ],
+                }
+            ]
+        }
+
+
 async def suggest_plan_directions(query: str, context: dict, artifacts: list[dict]) -> list[dict]:
     """Suggest 2-3 plan directions based on research findings.
 
@@ -134,6 +211,129 @@ Each direction should be a different strategic approach. Return ONLY a JSON arra
                 "key_focus": "End-to-end product development plan",
             }
         ]
+
+
+async def generate_design_preference_dimensions(
+    direction: dict, research_artifacts: list[dict], project_description: str = ""
+) -> list[dict]:
+    """Generate 5 design dimension pairs for user preference selection.
+
+    Each dimension has two options with image prompts for Gemini.
+    Returns: [{dimension_id, dimension_name, description, option_a: {option_id, label, description, image_prompt}, option_b: {...}}, ...]
+    """
+    client = get_client()
+
+    direction_block = ""
+    if direction:
+        direction_block = (
+            f'\nSelected direction: "{direction.get("title", "")}"\n'
+            f'Description: {direction.get("description", "")}\n'
+        )
+
+    description_block = ""
+    if project_description:
+        description_block = f'\nProject description: "{project_description}"\n'
+
+    artifact_summaries = "\n".join(
+        f"- [{a.get('type', '')}] {a.get('title', '')}: {a.get('summary', '')}"
+        for a in research_artifacts[:10]
+    )
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=6000,
+        thinking={"type": "adaptive"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"""You are a product design consultant. Based on the product direction and research, generate exactly 5 design preference dimensions.
+
+Each dimension presents TWO contrasting visual/UX approaches for THIS specific product. Make them specific to the product, not generic.
+{direction_block}{description_block}
+Research findings:
+{artifact_summaries}
+
+For each dimension, create two options with detailed image prompts that Gemini can use to generate UI mockup screenshots.
+
+Return ONLY a JSON array of 5 objects:
+[
+  {{
+    "dimension_id": "dim_1",
+    "dimension_name": "Color Scheme",
+    "description": "Overall color palette and mood",
+    "option_a": {{
+      "option_id": "dim_1_a",
+      "label": "Dark & Moody",
+      "description": "Deep navy/charcoal palette with neon accents",
+      "image_prompt": "High-fidelity UI mockup screenshot of a [product type] app with dark navy background, neon cyan accents, modern sans-serif typography, showing the main dashboard view. Clean, professional design. No watermarks."
+    }},
+    "option_b": {{
+      "option_id": "dim_1_b",
+      "label": "Light & Clean",
+      "description": "White/cream palette with subtle color accents",
+      "image_prompt": "High-fidelity UI mockup screenshot of a [product type] app with white/cream background, soft blue accents, clean typography, showing the main dashboard view. Minimal, airy design. No watermarks."
+    }}
+  }}
+]
+
+Make all 5 dimensions different aspects: color scheme, layout style, typography/density, visual elements, component style. Tailor image prompts to this specific product.""",
+            }
+        ],
+    )
+
+    text = _extract_text(response)
+
+    try:
+        dimensions = _parse_json_array(text)
+        # Validate structure
+        for dim in dimensions:
+            if not all(k in dim for k in ("dimension_id", "dimension_name", "option_a", "option_b")):
+                raise ValueError("Invalid dimension structure")
+        return dimensions[:5]
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        logger.warning("Failed to parse design dimensions, using fallback")
+        return _fallback_design_dimensions()
+
+
+def _fallback_design_dimensions() -> list[dict]:
+    """Generic fallback dimensions if Claude fails."""
+    return [
+        {
+            "dimension_id": "dim_1",
+            "dimension_name": "Color Scheme",
+            "description": "Overall color palette and mood",
+            "option_a": {"option_id": "dim_1_a", "label": "Dark & Moody", "description": "Deep dark palette with vibrant accents", "image_prompt": ""},
+            "option_b": {"option_id": "dim_1_b", "label": "Light & Clean", "description": "Bright, airy palette with subtle tones", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_2",
+            "dimension_name": "Layout Style",
+            "description": "How content is organized on screen",
+            "option_a": {"option_id": "dim_2_a", "label": "Dense & Data-rich", "description": "Compact layout with lots of info visible", "image_prompt": ""},
+            "option_b": {"option_id": "dim_2_b", "label": "Spacious & Focused", "description": "Generous whitespace, one thing at a time", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_3",
+            "dimension_name": "Typography",
+            "description": "Text styling and readability approach",
+            "option_a": {"option_id": "dim_3_a", "label": "Modern Sans-serif", "description": "Clean geometric sans-serif fonts", "image_prompt": ""},
+            "option_b": {"option_id": "dim_3_b", "label": "Warm & Humanist", "description": "Rounded, friendly typefaces", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_4",
+            "dimension_name": "Visual Elements",
+            "description": "Use of imagery and decorative elements",
+            "option_a": {"option_id": "dim_4_a", "label": "Illustration-heavy", "description": "Custom illustrations and icons throughout", "image_prompt": ""},
+            "option_b": {"option_id": "dim_4_b", "label": "Photo-driven", "description": "Real photography and minimal illustrations", "image_prompt": ""},
+        },
+        {
+            "dimension_id": "dim_5",
+            "dimension_name": "Component Style",
+            "description": "Shape language for buttons, cards, inputs",
+            "option_a": {"option_id": "dim_5_a", "label": "Sharp & Angular", "description": "Square corners, strong borders, bold contrast", "image_prompt": ""},
+            "option_b": {"option_id": "dim_5_b", "label": "Soft & Rounded", "description": "Rounded corners, subtle shadows, gentle edges", "image_prompt": ""},
+        },
+    ]
 
 
 async def plan_research(query: str, context: dict | None = None) -> list[dict]:
@@ -418,11 +618,11 @@ Return ONLY the JSON object, no other text.""",
 
 
 async def generate_plan(
-    description: str, research_artifacts: list[dict]
+    description: str, research_artifacts: list[dict], context: dict | None = None
 ) -> dict:
     """Use Claude to break down a project into plan components with connections.
 
-    Returns dict with "components" and "connections" keys.
+    Returns dict with "components", "connections", and "design_system" keys.
     """
     client = get_client()
 
@@ -431,6 +631,12 @@ async def generate_plan(
         research_context = "\n\nAvailable research findings for reference:\n" + "\n".join(
             f"- {a.get('id', '')}: {a.get('title', '')} — {a.get('summary', '')}"
             for a in research_artifacts
+        )
+
+    user_prefs = ""
+    if context:
+        user_prefs = "\n\nUser preferences and requirements:\n" + "\n".join(
+            f"- {k}: {v}" for k, v in context.items()
         )
 
     response = client.messages.create(
@@ -443,7 +649,7 @@ async def generate_plan(
                 "content": f"""You are a product architect. Break down this product/project into a blueprint with components that could be handed to coding agents.
 
 Project description: "{description}"
-{research_context}
+{research_context}{user_prefs}
 
 Create 4-6 plan components. Each should be a JSON object with a temp_id for cross-referencing:
 {{
@@ -453,8 +659,12 @@ Create 4-6 plan components. Each should be a JSON object with a temp_id for cros
   "content": "Detailed markdown description (3-5 paragraphs) including: purpose, key features, technical approach, dependencies",
   "summary": "1-2 sentence summary",
   "importance": 0-100 (higher = more critical/foundational),
-  "references": ["art_xxxx", ...] (IDs of research artifacts this references, if any)
+  "references": ["art_xxxx", ...] (IDs of research artifacts this references, if any),
+  "has_ui": true/false (whether this component has a user-facing interface),
+  "ui_description": "Brief description of the UI screen if has_ui is true"
 }}
+
+For components with has_ui: true, provide a ui_description that describes what the user would see on screen (layout, key elements, interactions).
 
 Also include 1-2 "mermaid" type artifacts for architecture diagrams:
 {{
@@ -464,7 +674,8 @@ Also include 1-2 "mermaid" type artifacts for architecture diagrams:
   "content": "graph TD\\n  A[Frontend] --> B[API]\\n  ...",
   "summary": "System architecture diagram",
   "importance": 90,
-  "references": []
+  "references": [],
+  "has_ui": false
 }}
 
 Also define DIRECTED connections between components forming a DAG (no cycles).
@@ -482,10 +693,21 @@ Rules for connections:
 - Aim for layers: some root components (no incoming), some leaves (no outgoing)
 - Every component should have at least one connection
 
+Also define a design_system for the product's visual identity:
+{{
+  "primary_color": "#hex",
+  "secondary_color": "#hex",
+  "accent_color": "#hex",
+  "background_style": "dark/light/gradient description",
+  "font_style": "modern sans-serif/monospace/etc",
+  "overall_feel": "minimal and clean/bold and vibrant/etc"
+}}
+
 Return ONLY a JSON object with this structure, no other text:
 {{
   "components": [ ... ],
-  "connections": [ ... ]
+  "connections": [ ... ],
+  "design_system": {{ ... }}
 }}""",
             }
         ],

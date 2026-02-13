@@ -9,6 +9,8 @@ import type {
   Phase,
   ClarifyingQuestion,
   PlanDirection,
+  DesignDimension,
+  PlanStage,
 } from "../types";
 import { api } from "../api/client";
 
@@ -32,6 +34,15 @@ interface ProjectStore {
   planDirections: PlanDirection[];
   researchContext: Record<string, string>;
   researchDirections: { angle: string; sub_query: string }[];
+  planClarifyingQuestions: ClarifyingQuestion[];
+  planContext: Record<string, string>;
+  selectedDirection: PlanDirection | null;
+  planClarifyLoading: boolean;
+  showPlanWizard: boolean;
+  showResearchWizard: boolean;
+  designDimensions: DesignDimension[];
+  designPreferences: Record<string, string>;
+  planStages: PlanStage[];
 
   // Actions
   listProjects: () => Promise<void>;
@@ -60,6 +71,19 @@ interface ProjectStore {
   updateProjectTitle: (id: string, title: string) => Promise<void>;
   setResearchContext: (context: Record<string, string>) => void;
   setResearchDirections: (directions: { angle: string; sub_query: string }[]) => void;
+  setPlanClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
+  setPlanContext: (context: Record<string, string>) => void;
+  setSelectedDirection: (direction: PlanDirection | null) => void;
+  setPlanClarifyLoading: (v: boolean) => void;
+  setShowPlanWizard: (v: boolean) => void;
+  setShowResearchWizard: (v: boolean) => void;
+  setDesignDimensions: (dims: DesignDimension[]) => void;
+  updateDesignOptionImage: (optionId: string, imageUrl: string) => void;
+  setDesignPreferences: (prefs: Record<string, string>) => void;
+  clearDesignState: () => void;
+  addPlanStage: (stage: PlanStage) => void;
+  updatePlanStage: (id: string, updates: Partial<PlanStage>) => void;
+  clearPlanStages: () => void;
   reset: () => void;
 
   // Computed-like helpers
@@ -86,6 +110,15 @@ const initialState = {
   planDirections: [] as PlanDirection[],
   researchContext: {} as Record<string, string>,
   researchDirections: [] as { angle: string; sub_query: string }[],
+  planClarifyingQuestions: [] as ClarifyingQuestion[],
+  planContext: {} as Record<string, string>,
+  selectedDirection: null as PlanDirection | null,
+  planClarifyLoading: false,
+  showPlanWizard: false,
+  showResearchWizard: false,
+  designDimensions: [] as DesignDimension[],
+  designPreferences: {} as Record<string, string>,
+  planStages: [] as PlanStage[],
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -198,7 +231,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setResearching: (v, query) =>
     set({ isResearching: v, ...(query !== undefined ? { researchQuery: query } : {}) }),
   setPlanning: (v, description) =>
-    set({ isPlanning: v, ...(description !== undefined ? { planDescription: description } : {}), ...(v ? {} : { imageGenerationProgress: null }) }),
+    set({ isPlanning: v, ...(description !== undefined ? { planDescription: description } : {}), ...(v ? { planStages: [] } : { imageGenerationProgress: null }) }),
   setImageGenerationProgress: (total) =>
     set({ imageGenerationProgress: total != null ? { total, completed: 0 } : null }),
   incrementImageGeneration: () =>
@@ -219,6 +252,36 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
   setResearchContext: (context) => set({ researchContext: context }),
   setResearchDirections: (directions) => set({ researchDirections: directions }),
+  setPlanClarifyingQuestions: (questions) => set({ planClarifyingQuestions: questions }),
+  setPlanContext: (context) => set({ planContext: context }),
+  setSelectedDirection: (direction) => set({ selectedDirection: direction }),
+  setPlanClarifyLoading: (v) => set({ planClarifyLoading: v }),
+  setShowPlanWizard: (v) => set({ showPlanWizard: v }),
+  setShowResearchWizard: (v) => set({ showResearchWizard: v }),
+  setDesignDimensions: (dims) => set({ designDimensions: dims }),
+  updateDesignOptionImage: (optionId, imageUrl) =>
+    set((s) => ({
+      designDimensions: s.designDimensions.map((dim) => ({
+        ...dim,
+        option_a: dim.option_a.option_id === optionId ? { ...dim.option_a, image_url: imageUrl } : dim.option_a,
+        option_b: dim.option_b.option_id === optionId ? { ...dim.option_b, image_url: imageUrl } : dim.option_b,
+      })),
+    })),
+  setDesignPreferences: (prefs) => set({ designPreferences: prefs }),
+  clearDesignState: () => set({ designDimensions: [], designPreferences: {} }),
+
+  addPlanStage: (stage) =>
+    set((s) => {
+      if (s.planStages.some((ps) => ps.id === stage.id)) return s;
+      return { planStages: [...s.planStages, stage] };
+    }),
+  updatePlanStage: (id, updates) =>
+    set((s) => ({
+      planStages: s.planStages.map((ps) =>
+        ps.id === id ? { ...ps, ...updates } : ps
+      ),
+    })),
+  clearPlanStages: () => set({ planStages: [] }),
 
   reset: () => set(initialState),
 

@@ -34,12 +34,15 @@ export function PhaseNav() {
     <header className="h-11 border-b border-[var(--border-dim)] bg-[var(--bg-surface)] flex items-center px-4 gap-4">
       <button
         onClick={() => reset()}
-        className="text-[var(--text-secondary)] hover:text-[var(--accent-cyan)] transition-colors"
+        className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--accent-cyan)] transition-colors"
         title="Back to projects"
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-          <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <div className="w-5 h-5 rounded bg-[var(--accent-cyan)] flex items-center justify-center">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+          </svg>
+        </div>
+        <span className="font-mono-hud text-xs font-bold text-[var(--text-primary)] uppercase tracking-widest hover:text-[var(--accent-cyan)]">MVB</span>
       </button>
       {editingTitle ? (
         <input
