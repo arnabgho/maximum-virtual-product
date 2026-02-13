@@ -93,7 +93,7 @@ export function ReviewMode() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left panel: image/diagram with annotations */}
-        <div className="flex-1 flex items-center justify-center p-6 overflow-auto">
+        <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
           {currentArtifact && hasSpatialSupport ? (
             <AnnotatedImage
               artifact={currentArtifact}
@@ -114,7 +114,7 @@ export function ReviewMode() {
               }}
             />
           ) : currentArtifact ? (
-            <div className="max-w-2xl w-full max-h-full overflow-auto bg-[var(--bg-surface)] rounded-xl border border-[var(--border-dim)] p-6">
+            <div className="max-w-4xl w-full max-h-full overflow-auto bg-[var(--bg-surface)] rounded-xl border border-[var(--border-dim)] p-6">
               <MarkdownContent content={currentArtifact.content} />
             </div>
           ) : null}
@@ -515,7 +515,7 @@ function AnnotatedImage({
       {isMermaid && <ZoomControls zoom={zoom} setZoom={setZoom} />}
 
       <div
-        className="overflow-auto max-h-[calc(100vh-14rem)]"
+        className="overflow-auto max-h-[calc(100vh-11rem)]"
         onWheel={handleWheel}
       >
         <div
@@ -630,7 +630,7 @@ function MermaidStatic({ content }: { content: string }) {
   return (
     <div
       ref={ref}
-      className="flex items-center justify-center p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-dim)] pointer-events-none"
+      className="flex items-center justify-center p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-dim)] pointer-events-none min-w-[600px]"
     />
   );
 }
@@ -787,7 +787,7 @@ function CommentSidebar({
   };
 
   return (
-    <div className="w-72 border-l border-[var(--border-dim)] bg-[var(--bg-surface)] flex flex-col">
+    <div className="w-96 border-l border-[var(--border-dim)] bg-[var(--bg-surface)] flex flex-col">
       {/* Header */}
       <div className="p-3 border-b border-[var(--border-dim)] flex items-center justify-between">
         <h3 className="text-xs font-mono-hud text-[var(--text-muted)] uppercase tracking-wider">
@@ -828,7 +828,7 @@ function CommentSidebar({
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="px-3 pb-3 max-h-60 overflow-y-auto text-xs">
+                <div className="px-3 pb-3 max-h-[60vh] overflow-y-auto text-xs">
                   <MarkdownContent content={artifact.content} />
                 </div>
               </motion.div>
