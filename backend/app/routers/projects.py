@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.auth import get_current_user_id
 from app.db.supabase import get_db
 from app.models.schema import Project, ProjectCreate, ProjectUpdate
 
@@ -7,15 +8,17 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.get("", response_model=list[Project])
-async def list_projects():
+async def list_projects(user_id: str | None = Depends(get_current_user_id)):
     db = get_db()
-    return await db.list_projects()
+    return await db.list_projects(user_id=user_id)
 
 
 @router.post("", response_model=Project)
-async def create_project(data: ProjectCreate):
+async def create_project(
+    data: ProjectCreate, user_id: str | None = Depends(get_current_user_id)
+):
     db = get_db()
-    project = Project(title=data.title, description=data.description)
+    project = Project(title=data.title, description=data.description, user_id=user_id)
     return await db.create_project(project)
 
 
