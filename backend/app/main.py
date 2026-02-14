@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import artifacts, feedback, plan, projects, research, video, export, plan_directions
+from app.routers import artifacts, auth, feedback, plan, projects, research, video, export, plan_directions
 from app.ws.handlers import handle_project_ws
 from app.ws.manager import get_ws_manager
 
@@ -38,6 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(artifacts.router)
 app.include_router(feedback.router)

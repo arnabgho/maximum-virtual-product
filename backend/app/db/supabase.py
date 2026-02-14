@@ -50,8 +50,11 @@ class SupabaseDB:
             return Project(**result.data[0])
         return None
 
-    async def list_projects(self) -> list[Project]:
-        result = self._client.table("projects").select("*").order("updated_at", desc=True).execute()
+    async def list_projects(self, user_id: str | None = None) -> list[Project]:
+        query = self._client.table("projects").select("*")
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.order("updated_at", desc=True).execute()
         return [Project(**row) for row in result.data]
 
     async def delete_project(self, project_id: str) -> bool:

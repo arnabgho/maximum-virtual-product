@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ═══════════════════════════════════════════════════════════════
+   VS Code Webview — HUD Dark Theme (adapted from frontend)
+   Maps to VS Code theme tokens where possible
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg-deep: #060a13;
+  --bg-base: #0a1020;
+  --bg-surface: #0f1729;
+  --bg-elevated: #162036;
+  --bg-hover: #1a2744;
+  --border-dim: #152240;
+  --border-default: #1e3054;
+  --border-bright: #2a4070;
+  --accent-cyan: #00e5ff;
+  --accent-purple: #7c3aed;
+  --accent-green: #00e5a0;
+  --accent-amber: #f5a623;
+  --accent-red: #ff3b5c;
+  --text-primary: #e2e8f0;
+  --text-secondary: #7a8ba0;
+  --text-muted: #3e5068;
+}
+
+/* Use VS Code theme colors when available */
+body.vscode-dark {
+  --bg-deep: var(--vscode-editor-background, #060a13);
+  --bg-surface: var(--vscode-sideBar-background, #0f1729);
+  --border-dim: var(--vscode-panel-border, #152240);
+  --text-primary: var(--vscode-editor-foreground, #e2e8f0);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--vscode-font-family, "Inter", -apple-system, BlinkMacSystemFont, sans-serif);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root { min-height: 100vh; }
+
+.font-mono-hud {
+  font-family: var(--vscode-editor-font-family, "JetBrains Mono", "Fira Code", monospace);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+
+/* HUD components */
+.hud-panel { background: var(--bg-surface); border: 1px solid var(--border-dim); }
+.hud-input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+  color: var(--text-primary);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.hud-input::placeholder { color: var(--text-muted); }
+.hud-input:focus {
+  outline: none;
+  border-color: rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.1);
+}
+
+.hud-btn-primary {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 229, 255, 0.05));
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--accent-cyan);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.hud-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.25), rgba(0, 229, 255, 0.1));
+  border-color: rgba(0, 229, 255, 0.5);
+}
+.hud-btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Badges */
+.badge-cyan { background: rgba(0, 229, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.2); color: var(--accent-cyan); }
+.badge-green { background: rgba(0, 229, 160, 0.1); border: 1px solid rgba(0, 229, 160, 0.2); color: var(--accent-green); }
+.badge-amber { background: rgba(245, 166, 35, 0.1); border: 1px solid rgba(245, 166, 35, 0.2); color: var(--accent-amber); }
