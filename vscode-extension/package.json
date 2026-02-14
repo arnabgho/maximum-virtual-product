@@ -30,6 +30,8 @@
       ]
     },
     "commands": [
+      { "command": "mvp.signIn", "title": "MVP: Sign In with GitHub", "icon": "$(sign-in)" },
+      { "command": "mvp.signOut", "title": "MVP: Sign Out", "icon": "$(sign-out)" },
       { "command": "mvp.createProject", "title": "MVP: Create Project", "icon": "$(add)" },
       { "command": "mvp.startResearch", "title": "MVP: Start Research" },
       { "command": "mvp.generatePlan", "title": "MVP: Generate Plan" },

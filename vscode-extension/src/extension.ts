@@ -4,15 +4,23 @@ import * as fs from "fs";
 import { ProjectTreeProvider } from "./sidebar/ProjectTreeProvider";
 import { CanvasPanel } from "./panels/CanvasPanel";
 import * as api from "./api/mvpClient";
+import { initAuth, signIn, signOut, isSignedIn, onDidSignIn, onDidSignOut } from "./auth";
 import type { PlanDirection } from "./types";
 
 export function activate(context: vscode.ExtensionContext) {
+  // Initialize auth with SecretStorage
+  initAuth(context.secrets);
+
   const treeProvider = new ProjectTreeProvider();
   const treeView = vscode.window.createTreeView("mvp-projects", {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
   context.subscriptions.push(treeView);
+
+  // Refresh tree when auth state changes
+  context.subscriptions.push(onDidSignIn(() => treeProvider.refresh()));
+  context.subscriptions.push(onDidSignOut(() => treeProvider.refresh()));
 
   // Helper to resolve projectId from command arguments or prompt user
   async function resolveProjectId(projectId?: string): Promise<string | undefined> {
@@ -42,6 +50,30 @@ export function activate(context: vscode.ExtensionContext) {
       return undefined;
     }
   }
+
+  // --- mvp.signIn ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mvp.signIn", async () => {
+      try {
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: "Signing in with GitHub..." },
+          () => signIn()
+        );
+        vscode.window.showInformationMessage("Signed in to MVP.");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        vscode.window.showErrorMessage(`Sign-in failed: ${msg}`);
+      }
+    })
+  );
+
+  // --- mvp.signOut ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mvp.signOut", async () => {
+      await signOut();
+      vscode.window.showInformationMessage("Signed out of MVP.");
+    })
+  );
 
   // --- mvp.refresh ---
   context.subscriptions.push(

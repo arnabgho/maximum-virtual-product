@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import WebSocket from "ws";
+import { getToken, clearCachedToken, signIn } from "../auth";
 import type {
   Project,
   Artifact,
@@ -20,11 +21,37 @@ function getWsUrl(): string {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const url = `${getBackendUrl()}${path}`;
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
+  const res = await fetch(url, { ...options, headers });
+
+  // Auto-retry on 401: re-authenticate and replay the request once
+  if (res.status === 401 && token) {
+    clearCachedToken();
+    try {
+      const newToken = await signIn();
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
+        const retry = await fetch(url, { ...options, headers });
+        if (!retry.ok) {
+          const error = await retry.json().catch(() => ({ detail: retry.statusText }));
+          throw new Error((error as { detail?: string }).detail || "Request failed");
+        }
+        return retry.json() as Promise<T>;
+      }
+    } catch {
+      // Fall through to original error
+    }
+  }
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error((error as { detail?: string }).detail || "Request failed");
