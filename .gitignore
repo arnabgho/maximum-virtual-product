@@ -17,6 +17,7 @@ out/
 
 # IDE
 .vscode/
+!vscode-extension/.vscode/
 .idea/
 *.swp
 *.swo
