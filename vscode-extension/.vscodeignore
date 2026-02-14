@@ -1,0 +1,11 @@
+**/*.ts
+!out/**/*.js
+src/
+webview/src/
+webview/node_modules/
+webview/package.json
+webview/tsconfig.json
+webview/vite.config.ts
+node_modules/
+.gitignore
+tsconfig.json

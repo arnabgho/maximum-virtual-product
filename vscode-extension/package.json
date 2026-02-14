@@ -1,0 +1,80 @@
+{
+  "name": "mvp-research-planner",
+  "displayName": "MVP - AI Research & Planning",
+  "description": "AI-powered research and product blueprint system inside VS Code",
+  "version": "0.1.0",
+  "publisher": "mvp",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onView:mvp-projects"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mvp-sidebar",
+          "title": "MVP",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mvp-sidebar": [
+        {
+          "id": "mvp-projects",
+          "name": "Projects",
+          "type": "tree"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "mvp.createProject", "title": "MVP: Create Project", "icon": "$(add)" },
+      { "command": "mvp.startResearch", "title": "MVP: Start Research" },
+      { "command": "mvp.generatePlan", "title": "MVP: Generate Plan" },
+      { "command": "mvp.openCanvas", "title": "MVP: Open Canvas" },
+      { "command": "mvp.exportPlan", "title": "MVP: Export Plan to Workspace" },
+      { "command": "mvp.openInBrowser", "title": "MVP: Open in Browser" },
+      { "command": "mvp.refresh", "title": "Refresh", "icon": "$(refresh)" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "mvp.createProject", "when": "view == mvp-projects", "group": "navigation" },
+        { "command": "mvp.refresh", "when": "view == mvp-projects", "group": "navigation" }
+      ],
+      "view/item/context": [
+        { "command": "mvp.startResearch", "when": "viewItem == project-research" },
+        { "command": "mvp.generatePlan", "when": "viewItem == project-plan" },
+        { "command": "mvp.openCanvas", "when": "viewItem == project" },
+        { "command": "mvp.exportPlan", "when": "viewItem == project" },
+        { "command": "mvp.openInBrowser", "when": "viewItem == project" }
+      ]
+    },
+    "configuration": {
+      "title": "MVP",
+      "properties": {
+        "mvp.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "MVP backend API URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile && cd webview && npm run build",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "~5.8.0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

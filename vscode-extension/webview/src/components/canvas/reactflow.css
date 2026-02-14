@@ -1,0 +1,46 @@
+/* Dark HUD theme overrides for React Flow */
+.react-flow {
+  background: var(--bg-deep);
+}
+
+.react-flow__node {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  width: auto;
+  font-size: inherit;
+}
+
+.react-flow__controls {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.react-flow__controls-button {
+  background: var(--bg-surface);
+  border-color: var(--border-dim);
+  fill: var(--text-secondary);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--bg-elevated);
+  fill: var(--accent-cyan);
+}
+
+.react-flow__minimap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__edge-textwrapper {
+  font-size: 10px;
+}
