@@ -3,11 +3,18 @@
   "displayName": "MVP - AI Research & Planning",
   "description": "AI-powered research and product blueprint system inside VS Code",
   "version": "0.1.0",
-  "publisher": "mvp",
+  "publisher": "Pineapple-Labs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arnabgho/maximum-virtual-product"
+  },
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": ["Other", "Data Science", "Machine Learning"],
+  "keywords": ["research", "ai", "planning", "blueprint"],
   "activationEvents": ["onView:mvp-projects"],
   "main": "./out/extension.js",
   "contributes": {
@@ -60,6 +67,11 @@
           "type": "string",
           "default": "http://localhost:8000",
           "description": "MVP backend API URL"
+        },
+        "mvp.frontendUrl": {
+          "type": "string",
+          "default": "http://localhost:5173",
+          "description": "MVP frontend web URL"
         }
       }
     }
