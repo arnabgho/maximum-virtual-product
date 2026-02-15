@@ -65,12 +65,12 @@
       "properties": {
         "mvp.backendUrl": {
           "type": "string",
-          "default": "http://localhost:8000",
+          "default": "https://selfless-determination-production-af9e.up.railway.app",
           "description": "MVP backend API URL"
         },
         "mvp.frontendUrl": {
           "type": "string",
-          "default": "http://localhost:5173",
+          "default": "https://steadfast-essence-production-f170.up.railway.app",
           "description": "MVP frontend web URL"
         }
       }

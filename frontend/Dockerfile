@@ -12,4 +12,4 @@ FROM node:20-slim
 RUN npm install -g serve
 COPY --from=build /app/dist /app
 WORKDIR /app
-CMD ["serve", "-s", ".", "-l", "5173"]
+CMD serve -s . -l ${PORT:-5173}
