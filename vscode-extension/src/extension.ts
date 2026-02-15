@@ -274,7 +274,7 @@ export function activate(context: vscode.ExtensionContext) {
       const id = await resolveProjectId(projectId);
       if (!id) return;
 
-      const frontendUrl = "http://localhost:5173";
+      const frontendUrl = vscode.workspace.getConfiguration("mvp").get<string>("frontendUrl", "http://localhost:5173");
       const url = `${frontendUrl}?project=${id}`;
       vscode.env.openExternal(vscode.Uri.parse(url));
     })
