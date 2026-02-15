@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/projects", tags=["export"])
 @router.get("/{project_id}/export")
 async def export_project(
     project_id: str,
-    format: str = Query(default="json", regex="^(json|text)$"),
+    format: str = Query(default="json", pattern="^(json|text)$"),
 ):
     try:
         markdown = await export_project_markdown(project_id)
