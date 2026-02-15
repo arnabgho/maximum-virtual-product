@@ -66,7 +66,7 @@ export class CanvasPanel {
     // Create new panel
     const panel = vscode.window.createWebviewPanel(
       CanvasPanel.viewType,
-      "MVP Canvas",
+      "MVB Canvas",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -82,7 +82,7 @@ export class CanvasPanel {
 
   async loadProject(projectId: string): Promise<void> {
     this.projectId = projectId;
-    this.panel.title = "MVP Canvas";
+    this.panel.title = "MVB Canvas";
 
     try {
       const [project, artifacts, connections, groups, feedback] = await Promise.all([
@@ -93,7 +93,7 @@ export class CanvasPanel {
         api.getFeedback(projectId),
       ]);
 
-      this.panel.title = `MVP: ${project.title}`;
+      this.panel.title = `MVB: ${project.title}`;
 
       this.postMessage({
         type: "loadProject",
