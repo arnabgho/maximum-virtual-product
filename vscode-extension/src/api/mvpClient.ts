@@ -31,7 +31,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const url = `${getBackendUrl()}${path}`;
+  console.log(`[MVB] ${options?.method || "GET"} ${url}`);
   const res = await fetch(url, { ...options, headers });
+  console.log(`[MVB] ${res.status} ${res.statusText} <- ${url}`);
 
   // Auto-retry on 401: re-authenticate and replay the request once
   if (res.status === 401 && token) {

@@ -2,7 +2,7 @@
   "name": "maximum-virtual-blueprint",
   "displayName": "Maximum Virtual Blueprint",
   "description": "AI-powered research and product blueprint system inside VS Code",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "Pineapple-Labs",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,6 @@
   },
   "categories": ["Other", "Data Science", "Machine Learning"],
   "keywords": ["research", "ai", "planning", "blueprint"],
-  "activationEvents": ["onView:mvp-projects"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
