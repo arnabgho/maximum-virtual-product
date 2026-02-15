@@ -22,7 +22,7 @@
       "activitybar": [
         {
           "id": "mvp-sidebar",
-          "title": "MVP",
+          "title": "MVB",
           "icon": "resources/icon.svg"
         }
       ]
@@ -37,14 +37,14 @@
       ]
     },
     "commands": [
-      { "command": "mvp.signIn", "title": "MVP: Sign In with GitHub", "icon": "$(sign-in)" },
-      { "command": "mvp.signOut", "title": "MVP: Sign Out", "icon": "$(sign-out)" },
-      { "command": "mvp.createProject", "title": "MVP: Create Project", "icon": "$(add)" },
-      { "command": "mvp.startResearch", "title": "MVP: Start Research" },
-      { "command": "mvp.generatePlan", "title": "MVP: Generate Plan" },
-      { "command": "mvp.openCanvas", "title": "MVP: Open Canvas" },
-      { "command": "mvp.exportPlan", "title": "MVP: Export Plan to Workspace" },
-      { "command": "mvp.openInBrowser", "title": "MVP: Open in Browser" },
+      { "command": "mvp.signIn", "title": "MVB: Sign In with GitHub", "icon": "$(sign-in)" },
+      { "command": "mvp.signOut", "title": "MVB: Sign Out", "icon": "$(sign-out)" },
+      { "command": "mvp.createProject", "title": "MVB: Create Project", "icon": "$(add)" },
+      { "command": "mvp.startResearch", "title": "MVB: Start Research" },
+      { "command": "mvp.generatePlan", "title": "MVB: Generate Plan" },
+      { "command": "mvp.openCanvas", "title": "MVB: Open Canvas" },
+      { "command": "mvp.exportPlan", "title": "MVB: Export Plan to Workspace" },
+      { "command": "mvp.openInBrowser", "title": "MVB: Open in Browser" },
       { "command": "mvp.refresh", "title": "Refresh", "icon": "$(refresh)" }
     ],
     "menus": {
@@ -61,17 +61,17 @@
       ]
     },
     "configuration": {
-      "title": "MVP",
+      "title": "MVB",
       "properties": {
         "mvp.backendUrl": {
           "type": "string",
           "default": "https://selfless-determination-production-af9e.up.railway.app",
-          "description": "MVP backend API URL"
+          "description": "MVB backend API URL"
         },
         "mvp.frontendUrl": {
           "type": "string",
           "default": "https://steadfast-essence-production-f170.up.railway.app",
-          "description": "MVP frontend web URL"
+          "description": "MVB frontend web URL"
         }
       }
     }

@@ -1,6 +1,6 @@
-# MVP - AI Research & Planning
+# Maximum Virtual Blueprint
 
-AI-powered research and product blueprint system inside VS Code. MVP uses Claude to research any topic in parallel, presenting findings as interconnected artifacts on an interactive canvas — then generates a structured product plan referencing those research findings.
+AI-powered research and product blueprint system inside VS Code. MVB uses Claude to research any topic in parallel, presenting findings as interconnected artifacts on an interactive canvas — then generates a structured product plan referencing those research findings.
 
 ## Features
 
@@ -12,7 +12,7 @@ AI-powered research and product blueprint system inside VS Code. MVP uses Claude
 
 ## Getting Started
 
-1. Open the **MVP** sidebar from the Activity Bar
+1. Open the **MVB** sidebar from the Activity Bar
 2. Click **Sign In with GitHub** to authenticate
 3. Create a new project and start researching
 
@@ -20,5 +20,5 @@ AI-powered research and product blueprint system inside VS Code. MVP uses Claude
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `mvp.backendUrl` | `http://localhost:8000` | MVP backend API URL |
-| `mvp.frontendUrl` | `http://localhost:5173` | MVP frontend web URL |
+| `mvp.backendUrl` | `https://selfless-determination-production-af9e.up.railway.app` | MVB backend API URL |
+| `mvp.frontendUrl` | `https://steadfast-essence-production-f170.up.railway.app` | MVB frontend web URL |

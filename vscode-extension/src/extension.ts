@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
           { location: vscode.ProgressLocation.Notification, title: "Signing in with GitHub..." },
           () => signIn()
         );
-        vscode.window.showInformationMessage("Signed in to MVP.");
+        vscode.window.showInformationMessage("Signed in to MVB.");
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         vscode.window.showErrorMessage(`Sign-in failed: ${msg}`);
@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("mvp.signOut", async () => {
       await signOut();
-      vscode.window.showInformationMessage("Signed out of MVP.");
+      vscode.window.showInformationMessage("Signed out of MVB.");
     })
   );
 
