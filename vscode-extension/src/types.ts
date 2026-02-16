@@ -124,6 +124,7 @@ export type WSEventType =
   | "research_directions_planned"
   | "design_image_ready"
   | "design_images_complete"
+  | "images_complete"
   | "error";
 
 export interface WSEvent {

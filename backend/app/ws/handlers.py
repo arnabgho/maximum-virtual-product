@@ -22,7 +22,7 @@ async def handle_project_ws(project_id: str, websocket: WebSocket, ws_manager: W
                     await websocket.send_text(json.dumps({"type": "pong"}))
             except json.JSONDecodeError:
                 pass
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
         logger.info("WS connection closed for project=%s", project_id)

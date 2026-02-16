@@ -5,28 +5,34 @@ import { ProjectWebSocket } from "../api/mvpClient";
 import type { ExtToWebview, WebviewToExt, WSEvent } from "../types";
 
 export class CanvasPanel {
-  public static currentPanel: CanvasPanel | undefined;
-  private static readonly viewType = "mvp-canvas";
+  private static panels = new Map<string, CanvasPanel>();
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
   private readonly disposables: vscode.Disposable[] = [];
-  private projectId: string | undefined;
+  private projectId: string;
   private ws: ProjectWebSocket;
   private onRefreshSidebar: () => void;
+  private webviewReady = false;
+  private pendingEvents: WSEvent[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
+    projectId: string,
     onRefreshSidebar: () => void
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
+    this.projectId = projectId;
     this.onRefreshSidebar = onRefreshSidebar;
     this.ws = new ProjectWebSocket();
 
     // Set webview HTML
     this.panel.webview.html = getWebviewContent(this.panel.webview, this.extensionUri);
+
+    // Connect WS immediately so we capture events while webview boots
+    this.connectWebSocket(projectId);
 
     // Listen for messages from the webview
     this.panel.webview.onDidReceiveMessage(
@@ -56,18 +62,19 @@ export class CanvasPanel {
     projectId: string,
     onRefreshSidebar: () => void
   ): CanvasPanel {
-    // If panel exists, show it
-    if (CanvasPanel.currentPanel) {
-      CanvasPanel.currentPanel.panel.reveal(vscode.ViewColumn.One);
-      CanvasPanel.currentPanel.loadProject(projectId);
-      return CanvasPanel.currentPanel;
+    // If panel for this project exists, reveal it
+    const existing = CanvasPanel.panels.get(projectId);
+    if (existing) {
+      existing.panel.reveal();
+      return existing;
     }
 
-    // Create new panel
+    // Create new panel — use Beside if there's already an open panel, otherwise One
+    const viewColumn = CanvasPanel.panels.size > 0 ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
     const panel = vscode.window.createWebviewPanel(
-      CanvasPanel.viewType,
+      `mvp-canvas-${projectId}`,
       "MVB Canvas",
-      vscode.ViewColumn.One,
+      viewColumn,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -75,22 +82,53 @@ export class CanvasPanel {
       }
     );
 
-    CanvasPanel.currentPanel = new CanvasPanel(panel, extensionUri, onRefreshSidebar);
-    CanvasPanel.currentPanel.loadProject(projectId);
-    return CanvasPanel.currentPanel;
+    const canvasPanel = new CanvasPanel(panel, extensionUri, projectId, onRefreshSidebar);
+    CanvasPanel.panels.set(projectId, canvasPanel);
+    // WS connects in constructor. The webview sends a "ready" message once its
+    // JS boots, which triggers loadProjectAndFlush() to send data + buffered events.
+    return canvasPanel;
   }
 
-  async loadProject(projectId: string): Promise<void> {
-    this.projectId = projectId;
-    this.panel.title = "MVB Canvas";
+  static disposeAll(): void {
+    for (const panel of CanvasPanel.panels.values()) {
+      panel.dispose();
+    }
+  }
 
+  private connectWebSocket(projectId: string): void {
+    this.ws.disconnect();
+    this.ws.connect(projectId);
+
+    this.ws.onEvent((event: WSEvent) => {
+      if (!this.webviewReady) {
+        this.pendingEvents.push(event);
+        return;
+      }
+      this.forwardWSEvent(event);
+    });
+  }
+
+  private forwardWSEvent(event: WSEvent): void {
+    this.postMessage({ type: "wsEvent", event });
+
+    if (
+      event.type === "research_complete" ||
+      event.type === "plan_complete" ||
+      event.type === "batch_regenerate_complete"
+    ) {
+      this.onRefreshSidebar();
+      setTimeout(() => this.refreshProjectData(), 1500);
+    }
+  }
+
+  private async loadProjectAndFlush(): Promise<void> {
     try {
       const [project, artifacts, connections, groups, feedback] = await Promise.all([
-        api.getProject(projectId),
-        api.getArtifacts(projectId),
-        api.getConnections(projectId),
-        api.getGroups(projectId),
-        api.getFeedback(projectId),
+        api.getProject(this.projectId),
+        api.getArtifacts(this.projectId),
+        api.getConnections(this.projectId),
+        api.getGroups(this.projectId),
+        api.getFeedback(this.projectId),
       ]);
 
       this.panel.title = `MVB: ${project.title}`;
@@ -104,38 +142,49 @@ export class CanvasPanel {
         feedback,
       });
 
-      // Connect WebSocket for real-time updates
-      this.connectWebSocket(projectId);
+      // Flush buffered WS events (processed in order after loadProject)
+      for (const event of this.pendingEvents) {
+        this.forwardWSEvent(event);
+      }
+      this.pendingEvents = [];
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       vscode.window.showErrorMessage(`Failed to load project: ${msg}`);
     }
   }
 
-  private connectWebSocket(projectId: string): void {
-    this.ws.disconnect();
-    this.ws.connect(projectId);
+  private async refreshProjectData(): Promise<void> {
+    try {
+      const [project, artifacts, connections, groups, feedback] = await Promise.all([
+        api.getProject(this.projectId),
+        api.getArtifacts(this.projectId),
+        api.getConnections(this.projectId),
+        api.getGroups(this.projectId),
+        api.getFeedback(this.projectId),
+      ]);
 
-    this.ws.onEvent((event: WSEvent) => {
-      // Forward all WS events to the webview
-      this.postMessage({ type: "wsEvent", event });
+      this.panel.title = `MVB: ${project.title}`;
 
-      // On completion events, refresh sidebar
-      if (
-        event.type === "research_complete" ||
-        event.type === "plan_complete" ||
-        event.type === "batch_regenerate_complete"
-      ) {
-        this.onRefreshSidebar();
-      }
-    });
+      this.postMessage({
+        type: "loadProject",
+        project,
+        artifacts,
+        connections,
+        groups,
+        feedback,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      vscode.window.showErrorMessage(`Failed to refresh project: ${msg}`);
+    }
   }
 
   private async handleWebviewMessage(msg: WebviewToExt): Promise<void> {
     switch (msg.type) {
       case "ready":
+        this.webviewReady = true;
         if (this.projectId) {
-          await this.loadProject(this.projectId);
+          await this.loadProjectAndFlush();
         }
         break;
 
@@ -195,7 +244,7 @@ export class CanvasPanel {
   }
 
   dispose(): void {
-    CanvasPanel.currentPanel = undefined;
+    CanvasPanel.panels.delete(this.projectId);
     this.ws.disconnect();
     this.panel.dispose();
     for (const d of this.disposables) {
