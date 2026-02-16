@@ -44,8 +44,7 @@
       { "command": "mvp.openCanvas", "title": "MVB: Open Canvas" },
       { "command": "mvp.exportPlan", "title": "MVB: Export Plan to Workspace" },
       { "command": "mvp.openInBrowser", "title": "MVB: Open in Browser" },
-      { "command": "mvp.refresh", "title": "Refresh", "icon": "$(refresh)" },
-      { "command": "mvp.switchEnvironment", "title": "MVB: Switch Environment" }
+      { "command": "mvp.refresh", "title": "Refresh", "icon": "$(refresh)" }
     ],
     "menus": {
       "view/title": [
@@ -70,7 +69,7 @@
         },
         "mvp.frontendUrl": {
           "type": "string",
-          "default": "https://steadfast-essence-production-f170.up.railway.app",
+          "default": "https://www.mvb-global.com",
           "description": "MVB frontend web URL"
         }
       }

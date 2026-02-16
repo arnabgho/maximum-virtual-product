@@ -58,40 +58,6 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }
 
-  // --- Environment toggle status bar ---
-  const envStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  envStatusBar.command = "mvp.switchEnvironment";
-  function updateEnvStatusBar() {
-    const backendUrl = vscode.workspace.getConfiguration("mvp").get<string>("backendUrl", "");
-    const isLocal = backendUrl.includes("localhost") || backendUrl.includes("127.0.0.1");
-    envStatusBar.text = isLocal ? "$(server) MVB: Local" : "$(server) MVB: Production";
-    envStatusBar.tooltip = `Backend: ${backendUrl}\nClick to switch`;
-    envStatusBar.show();
-  }
-  updateEnvStatusBar();
-  context.subscriptions.push(envStatusBar);
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mvp.switchEnvironment", async () => {
-      const config = vscode.workspace.getConfiguration("mvp");
-      const currentBackend = config.get<string>("backendUrl", "");
-      const isLocal = currentBackend.includes("localhost") || currentBackend.includes("127.0.0.1");
-
-      if (isLocal) {
-        await config.update("backendUrl", "https://selfless-determination-production-af9e.up.railway.app", vscode.ConfigurationTarget.Global);
-        await config.update("frontendUrl", "https://steadfast-essence-production-f170.up.railway.app", vscode.ConfigurationTarget.Global);
-      } else {
-        await config.update("backendUrl", "http://localhost:8000", vscode.ConfigurationTarget.Global);
-        await config.update("frontendUrl", "http://localhost:5173", vscode.ConfigurationTarget.Global);
-      }
-
-      updateEnvStatusBar();
-      treeProvider.refresh();
-      const env = isLocal ? "Production" : "Local";
-      vscode.window.showInformationMessage(`MVB: Switched to ${env}`);
-    })
-  );
-
   // --- mvp.signIn ---
   context.subscriptions.push(
     vscode.commands.registerCommand("mvp.signIn", async () => {

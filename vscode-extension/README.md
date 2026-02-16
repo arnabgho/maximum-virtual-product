@@ -21,4 +21,4 @@ AI-powered research and product blueprint system inside VS Code. MVB uses Claude
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `mvp.backendUrl` | `https://selfless-determination-production-af9e.up.railway.app` | MVB backend API URL |
-| `mvp.frontendUrl` | `https://steadfast-essence-production-f170.up.railway.app` | MVB frontend web URL |
+| `mvp.frontendUrl` | `https://www.mvb-global.com` | MVB frontend web URL |
