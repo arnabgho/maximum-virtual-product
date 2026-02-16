@@ -77,19 +77,20 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   imageGenerationProgress: null,
 
   setProject: (project, artifacts, connections, groups, feedback) => {
-    set({
+    set((s) => ({
       project,
       artifacts,
       connections,
       groups,
       feedback,
-      agents: [],
-      isResearching: false,
-      isPlanning: false,
-      batchRegenerateProgress: null,
-      planStages: [],
-      imageGenerationProgress: null,
-    });
+      // Preserve streaming state when reloading the same project
+      agents: s.project?.id === project.id ? s.agents : [],
+      isResearching: s.project?.id === project.id ? s.isResearching : false,
+      isPlanning: s.project?.id === project.id ? s.isPlanning : false,
+      batchRegenerateProgress: s.project?.id === project.id ? s.batchRegenerateProgress : null,
+      planStages: s.project?.id === project.id ? s.planStages : [],
+      imageGenerationProgress: s.project?.id === project.id ? s.imageGenerationProgress : null,
+    }));
   },
 
   handleWSEvent: (event: WSEvent) => {
@@ -111,10 +112,10 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
       }
 
       case "agent_thinking": {
-        const { agent_id, thinking } = data as { agent_id: string; thinking: string };
+        const { agent_id, text } = data as { agent_id: string; text: string };
         set((s) => ({
           agents: s.agents.map((a) =>
-            a.agent_id === agent_id ? { ...a, thinking } : a
+            a.agent_id === agent_id ? { ...a, thinking: text } : a
           ),
         }));
         break;
@@ -133,8 +134,8 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
       }
 
       case "connection_created": {
-        const connection = data.connection as ArtifactConnection;
-        if (connection) {
+        const connection = data as unknown as ArtifactConnection;
+        if (connection?.id) {
           set((s) => ({
             connections: s.connections.some((c) => c.id === connection.id)
               ? s.connections
@@ -153,10 +154,12 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
       }
 
       case "agent_complete": {
-        const { agent_id } = data as { agent_id: string };
+        const { agent_id, artifact_count } = data as { agent_id: string; artifact_count?: number };
         set((s) => ({
           agents: s.agents.map((a) =>
-            a.agent_id === agent_id ? { ...a, status: "complete" as const } : a
+            a.agent_id === agent_id
+              ? { ...a, status: "complete" as const, ...(artifact_count != null ? { artifact_count } : {}) }
+              : a
           ),
         }));
         break;
