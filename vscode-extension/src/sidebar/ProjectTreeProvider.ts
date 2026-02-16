@@ -138,9 +138,14 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   private getActionChildren(projectId: string, phase: "research" | "plan"): TreeNode[] {
+    const artifacts = this.artifactCache.get(projectId) || [];
+    const hasResearch = artifacts.some((a) => a.phase === "research");
+
+    const planLabel = hasResearch ? "Generate Plan" : "Generate Plan (no research yet)";
+
     return [
       new ActionCommandItem("Start Research", "mvp.startResearch", [projectId], "search"),
-      new ActionCommandItem("Generate Plan", "mvp.generatePlan", [projectId], "note"),
+      new ActionCommandItem(planLabel, "mvp.generatePlan", [projectId], "note"),
       new ActionCommandItem("Open Canvas", "mvp.openCanvas", [projectId], "preview"),
       new ActionCommandItem("Export Plan", "mvp.exportPlan", [projectId], "export"),
       new ActionCommandItem("Open in Browser", "mvp.openInBrowser", [projectId], "link-external"),

@@ -106,8 +106,15 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         const project = await api.createProject(title, description || "");
-        vscode.window.showInformationMessage(`Project created: ${project.title}`);
         treeProvider.refresh();
+
+        const action = await vscode.window.showInformationMessage(
+          `Project created: ${project.title}`,
+          "Start Research"
+        );
+        if (action === "Start Research") {
+          vscode.commands.executeCommand("mvp.startResearch", project.id);
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         vscode.window.showErrorMessage(`Failed to create project: ${msg}`);
@@ -118,59 +125,22 @@ export function activate(context: vscode.ExtensionContext) {
   // --- mvp.startResearch ---
   context.subscriptions.push(
     vscode.commands.registerCommand("mvp.startResearch", async (projectId?: string) => {
-      const id = await resolveProjectId(projectId);
-      if (!id) return;
-
-      const query = await vscode.window.showInputBox({
-        prompt: "Research query",
-        placeHolder: "What would you like to research?",
-      });
-      if (!query) return;
-
-      // Optionally get clarifying questions
-      let researchContext: Record<string, string> = {};
-      try {
-        const clarify = await vscode.window.withProgress(
-          { location: vscode.ProgressLocation.Notification, title: "Getting clarifying questions..." },
-          () => api.getClarifyingQuestions(query)
-        );
-
-        if (clarify.questions.length > 0) {
-          for (const q of clarify.questions) {
-            const answer = await vscode.window.showQuickPick(
-              [...q.options, "Skip"],
-              { placeHolder: q.question }
-            );
-            if (answer && answer !== "Skip") {
-              researchContext[q.question] = answer;
-            }
-          }
-        }
-      } catch {
-        // Proceed without clarifying questions
-      }
-
-      // Start research with progress tracking
-      try {
-        // Fetch project title for progress display
-        let projectTitle = "Research";
-        try {
-          const project = await api.getProject(id);
-          projectTitle = project.title;
-        } catch { /* use default */ }
-
-        await api.startResearch(id, query, researchContext);
-        progressTracker.trackResearch(id, projectTitle);
-        // Open canvas to show streaming research progress
-        CanvasPanel.createOrShow(
+      if (projectId) {
+        // Existing project — open canvas with research wizard
+        const panel = CanvasPanel.createOrShow(
           context.extensionUri,
-          id,
-          () => treeProvider.refreshProject(id),
+          projectId,
+          () => treeProvider.refreshProject(projectId),
           "research"
         );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        vscode.window.showErrorMessage(`Failed to start research: ${msg}`);
+        panel.startResearchWizard();
+      } else {
+        // No project — open wizard mode canvas (creates project during submit)
+        const panel = CanvasPanel.createWizard(
+          context.extensionUri,
+          () => treeProvider.refresh()
+        );
+        panel.startResearchWizard();
       }
     })
   );
@@ -180,6 +150,27 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("mvp.generatePlan", async (projectId?: string) => {
       const id = await resolveProjectId(projectId);
       if (!id) return;
+
+      // Plan gating: check if research has been done
+      try {
+        const researchArtifacts = await api.getArtifacts(id, "research");
+        if (researchArtifacts.length === 0) {
+          const action = await vscode.window.showWarningMessage(
+            "No research artifacts found. Run research first for better results.",
+            "Start Research",
+            "Generate Anyway"
+          );
+          if (action === "Start Research") {
+            vscode.commands.executeCommand("mvp.startResearch", id);
+            return;
+          }
+          if (action !== "Generate Anyway") {
+            return; // Dismissed
+          }
+        }
+      } catch {
+        // If check fails, proceed anyway
+      }
 
       // Get plan directions with progress notification
       let directions: PlanDirection[] = [];

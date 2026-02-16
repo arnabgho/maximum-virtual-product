@@ -6,6 +6,7 @@ import { ProjectCanvas } from "./components/canvas/ProjectCanvas";
 import { ReviewMode } from "./components/review/ReviewMode";
 import { ProgressView } from "./components/progress/ProgressView";
 import { PlanWizardModal } from "./components/wizard/PlanWizardModal";
+import { ResearchWizardModal } from "./components/wizard/ResearchWizardModal";
 import { AnimatePresence } from "framer-motion";
 
 export function App() {
@@ -14,6 +15,7 @@ export function App() {
   const isPlanning = useExtensionStore((s) => s.isPlanning);
   const reviewMode = useExtensionStore((s) => s.reviewMode);
   const showPlanWizard = useExtensionStore((s) => s.showPlanWizard);
+  const showResearchWizard = useExtensionStore((s) => s.showResearchWizard);
   const setProject = useExtensionStore((s) => s.setProject);
   const handleWSEvent = useExtensionStore((s) => s.handleWSEvent);
   const setFeedback = useExtensionStore((s) => s.setFeedback);
@@ -44,6 +46,19 @@ export function App() {
         case "planClarifyResult":
           useExtensionStore.getState().setPlanClarifyingQuestions(msg.questions);
           break;
+        case "startResearchWizard": {
+          const store = useExtensionStore.getState();
+          store.setResearchTopic(msg.topic || "");
+          store.setResearchDescription(msg.description || "");
+          store.setResearchClarifyingQuestions(msg.questions, msg.suggestedName);
+          store.setShowResearchWizard(true);
+          break;
+        }
+        case "researchClarifyResult": {
+          const store = useExtensionStore.getState();
+          store.setResearchClarifyingQuestions(msg.questions, msg.suggestedName);
+          break;
+        }
       }
     });
 
@@ -53,14 +68,21 @@ export function App() {
     return cleanup;
   }, [setProject, handleWSEvent, setFeedback]);
 
+  // When no project loaded: show wizard if active, otherwise loading text
   if (!project) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="text-[var(--text-muted)] text-sm font-mono-hud">
-            Loading project...
+        {showResearchWizard ? (
+          <AnimatePresence>
+            <ResearchWizardModal />
+          </AnimatePresence>
+        ) : (
+          <div className="text-center">
+            <div className="text-[var(--text-muted)] text-sm font-mono-hud">
+              Loading project...
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -76,6 +98,11 @@ export function App() {
       {/* Plan wizard overlay */}
       <AnimatePresence>
         {showPlanWizard && <PlanWizardModal />}
+      </AnimatePresence>
+
+      {/* Research wizard overlay */}
+      <AnimatePresence>
+        {showResearchWizard && <ResearchWizardModal />}
       </AnimatePresence>
 
       {/* Review mode overlay */}

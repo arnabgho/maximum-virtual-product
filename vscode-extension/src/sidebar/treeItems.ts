@@ -34,6 +34,11 @@ export class PhaseItem extends vscode.TreeItem {
       phase === "research" ? "search" : "note",
       isCurrentPhase ? new vscode.ThemeColor("charts.green") : undefined
     );
+    this.command = {
+      command: "mvp.openCanvas",
+      title: "Open Canvas",
+      arguments: [projectId, phase],
+    };
   }
 }
 
@@ -52,7 +57,7 @@ export class ArtifactItem extends vscode.TreeItem {
     this.command = {
       command: "mvp.openCanvas",
       title: "Open Canvas",
-      arguments: [artifact.project_id],
+      arguments: [artifact.project_id, artifact.phase],
     };
   }
 }

@@ -13,6 +13,12 @@ out/
 
 # Generated plans
 generated_plans/
+generated-plans/
+
+# VS Code extension build artifacts
+*.vsix
+vscode-extension/webview/.vite/
+vscode-extension/webview/tsconfig.tsbuildinfo
 
 # Environment
 .env

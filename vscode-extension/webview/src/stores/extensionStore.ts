@@ -72,6 +72,21 @@ interface ExtensionStore {
   requestPlanClarify: (direction: PlanDirection) => void;
   submitPlan: (direction: PlanDirection, designPrefs: Record<string, string>, clarifyAnswers: Record<string, string>) => void;
 
+  // Research wizard
+  showResearchWizard: boolean;
+  researchClarifyingQuestions: ClarifyingQuestion[];
+  researchTopic: string;
+  researchDescription: string;
+  researchSuggestedName: string;
+  researchWizardLoading: boolean;
+  setShowResearchWizard: (v: boolean) => void;
+  setResearchClarifyingQuestions: (questions: ClarifyingQuestion[], suggestedName: string) => void;
+  setResearchTopic: (topic: string) => void;
+  setResearchDescription: (description: string) => void;
+  setResearchWizardLoading: (v: boolean) => void;
+  requestResearchClarify: (topic: string, description: string) => void;
+  submitResearch: (query: string, description: string, projectName: string, context: Record<string, string>) => void;
+
   // Computed helpers
   phaseArtifacts: () => Artifact[];
   phaseGroups: () => Group[];
@@ -103,6 +118,12 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   designDimensions: [],
   planClarifyingQuestions: [],
   wizardLoading: false,
+  showResearchWizard: false,
+  researchClarifyingQuestions: [],
+  researchTopic: "",
+  researchDescription: "",
+  researchSuggestedName: "",
+  researchWizardLoading: false,
 
   setProject: (project, artifacts, connections, groups, feedback, displayPhase) => {
     set((s) => ({
@@ -363,6 +384,26 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   submitPlan: (direction, designPrefs, clarifyAnswers) => {
     set({ isPlanning: true, showPlanWizard: false });
     sendToExtension({ type: "submitPlan", direction, designPrefs, clarifyAnswers });
+  },
+
+  setShowResearchWizard: (v) => set({ showResearchWizard: v }),
+
+  setResearchClarifyingQuestions: (questions, suggestedName) =>
+    set({ researchClarifyingQuestions: questions, researchSuggestedName: suggestedName, researchWizardLoading: false }),
+
+  setResearchTopic: (topic) => set({ researchTopic: topic }),
+
+  setResearchDescription: (description) => set({ researchDescription: description }),
+
+  setResearchWizardLoading: (v) => set({ researchWizardLoading: v }),
+
+  requestResearchClarify: (topic, description) => {
+    sendToExtension({ type: "requestResearchClarify", topic, description });
+  },
+
+  submitResearch: (query, description, projectName, context) => {
+    set({ isResearching: true, showResearchWizard: false });
+    sendToExtension({ type: "submitResearch", query, description, projectName, context });
   },
 
   phaseArtifacts: () => {

@@ -2,7 +2,7 @@
   "name": "maximum-virtual-blueprint",
   "displayName": "Maximum Virtual Blueprint",
   "description": "AI-powered research and product blueprint system inside VS Code",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "publisher": "Pineapple-Labs",
   "license": "MIT",
   "repository": {

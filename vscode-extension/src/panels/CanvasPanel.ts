@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { getWebviewContent } from "./getWebviewContent";
 import * as api from "../api/mvpClient";
 import { ProjectWebSocket } from "../api/mvpClient";
-import type { ExtToWebview, WebviewToExt, PlanDirection, WSEvent } from "../types";
+import type { ExtToWebview, WebviewToExt, PlanDirection, ClarifyingQuestion, WSEvent, Phase } from "../types";
 import type { ProgressTracker } from "../services/ProgressTracker";
 
 export class CanvasPanel {
@@ -17,29 +17,39 @@ export class CanvasPanel {
   private readonly extensionUri: vscode.Uri;
   private readonly disposables: vscode.Disposable[] = [];
   private projectId: string;
+  private phase: Phase | undefined;
   private ws: ProjectWebSocket;
   private onRefreshSidebar: () => void;
   private webviewReady = false;
   private pendingEvents: WSEvent[] = [];
   private pendingWizardMessage: ExtToWebview | null = null;
 
+  private get panelKey(): string {
+    if (!this.projectId) return "wizard";
+    return this.phase ? `${this.projectId}:${this.phase}` : this.projectId;
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     projectId: string,
-    onRefreshSidebar: () => void
+    onRefreshSidebar: () => void,
+    phase?: Phase
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.projectId = projectId;
+    this.phase = phase;
     this.onRefreshSidebar = onRefreshSidebar;
     this.ws = new ProjectWebSocket();
 
     // Set webview HTML
     this.panel.webview.html = getWebviewContent(this.panel.webview, this.extensionUri);
 
-    // Connect WS immediately so we capture events while webview boots
-    this.connectWebSocket(projectId);
+    // Connect WS immediately so we capture events while webview boots — but only if we have a projectId
+    if (projectId) {
+      this.connectWebSocket(projectId);
+    }
 
     // Listen for messages from the webview
     this.panel.webview.onDidReceiveMessage(
@@ -67,10 +77,14 @@ export class CanvasPanel {
   static createOrShow(
     extensionUri: vscode.Uri,
     projectId: string,
-    onRefreshSidebar: () => void
+    onRefreshSidebar: () => void,
+    phase?: Phase
   ): CanvasPanel {
-    // If panel for this project exists, reveal it
-    const existing = CanvasPanel.panels.get(projectId);
+    // Key panels by projectId:phase so research and plan get independent tabs
+    const panelKey = phase ? `${projectId}:${phase}` : projectId;
+
+    // If panel for this key exists, reveal it
+    const existing = CanvasPanel.panels.get(panelKey);
     if (existing) {
       existing.panel.reveal();
       return existing;
@@ -78,9 +92,10 @@ export class CanvasPanel {
 
     // Create new panel — use Beside if there's already an open panel, otherwise One
     const viewColumn = CanvasPanel.panels.size > 0 ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
+    const phaseLabel = phase ? ` (${phase === "research" ? "Research" : "Plan"})` : "";
     const panel = vscode.window.createWebviewPanel(
-      `mvp-canvas-${projectId}`,
-      "MVB Canvas",
+      `mvp-canvas-${panelKey}`,
+      `MVB Canvas${phaseLabel}`,
       viewColumn,
       {
         enableScripts: true,
@@ -89,10 +104,39 @@ export class CanvasPanel {
       }
     );
 
-    const canvasPanel = new CanvasPanel(panel, extensionUri, projectId, onRefreshSidebar);
-    CanvasPanel.panels.set(projectId, canvasPanel);
+    const canvasPanel = new CanvasPanel(panel, extensionUri, projectId, onRefreshSidebar, phase);
+    CanvasPanel.panels.set(panelKey, canvasPanel);
     // WS connects in constructor. The webview sends a "ready" message once its
     // JS boots, which triggers loadProjectAndFlush() to send data + buffered events.
+    return canvasPanel;
+  }
+
+  /** Open a canvas panel in wizard mode (no projectId yet). */
+  static createWizard(
+    extensionUri: vscode.Uri,
+    onRefreshSidebar: () => void
+  ): CanvasPanel {
+    const panelKey = "wizard";
+    const existing = CanvasPanel.panels.get(panelKey);
+    if (existing) {
+      existing.panel.reveal();
+      return existing;
+    }
+
+    const viewColumn = CanvasPanel.panels.size > 0 ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
+    const panel = vscode.window.createWebviewPanel(
+      "mvp-canvas-wizard",
+      "MVB: New Research",
+      viewColumn,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, "webview", "dist")],
+      }
+    );
+
+    const canvasPanel = new CanvasPanel(panel, extensionUri, "", onRefreshSidebar);
+    CanvasPanel.panels.set(panelKey, canvasPanel);
     return canvasPanel;
   }
 
@@ -104,6 +148,21 @@ export class CanvasPanel {
 
   startPlanWizard(directions: PlanDirection[]): void {
     const msg: ExtToWebview = { type: "startPlanWizard", directions };
+    if (this.webviewReady) {
+      this.postMessage(msg);
+    } else {
+      this.pendingWizardMessage = msg;
+    }
+  }
+
+  startResearchWizard(topic?: string, description?: string, questions?: ClarifyingQuestion[], suggestedName?: string): void {
+    const msg: ExtToWebview = {
+      type: "startResearchWizard",
+      topic: topic || "",
+      description: description || "",
+      questions: questions || [],
+      suggestedName: suggestedName || "",
+    };
     if (this.webviewReady) {
       this.postMessage(msg);
     } else {
@@ -141,13 +200,14 @@ export class CanvasPanel {
     try {
       const [project, artifacts, connections, groups, feedback] = await Promise.all([
         api.getProject(this.projectId),
-        api.getArtifacts(this.projectId),
+        api.getArtifacts(this.projectId, this.phase),
         api.getConnections(this.projectId),
-        api.getGroups(this.projectId),
+        api.getGroups(this.projectId, this.phase),
         api.getFeedback(this.projectId),
       ]);
 
-      this.panel.title = `MVB: ${project.title}`;
+      const phaseLabel = this.phase ? ` (${this.phase === "research" ? "Research" : "Plan"})` : "";
+      this.panel.title = `MVB: ${project.title}${phaseLabel}`;
 
       this.postMessage({
         type: "loadProject",
@@ -156,6 +216,7 @@ export class CanvasPanel {
         connections,
         groups,
         feedback,
+        displayPhase: this.phase,
       });
 
       // Flush buffered WS events (processed in order after loadProject)
@@ -179,13 +240,14 @@ export class CanvasPanel {
     try {
       const [project, artifacts, connections, groups, feedback] = await Promise.all([
         api.getProject(this.projectId),
-        api.getArtifacts(this.projectId),
+        api.getArtifacts(this.projectId, this.phase),
         api.getConnections(this.projectId),
-        api.getGroups(this.projectId),
+        api.getGroups(this.projectId, this.phase),
         api.getFeedback(this.projectId),
       ]);
 
-      this.panel.title = `MVB: ${project.title}`;
+      const phaseLabel = this.phase ? ` (${this.phase === "research" ? "Research" : "Plan"})` : "";
+      this.panel.title = `MVB: ${project.title}${phaseLabel}`;
 
       this.postMessage({
         type: "loadProject",
@@ -194,6 +256,7 @@ export class CanvasPanel {
         connections,
         groups,
         feedback,
+        displayPhase: this.phase,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -207,6 +270,20 @@ export class CanvasPanel {
         this.webviewReady = true;
         if (this.projectId) {
           await this.loadProjectAndFlush();
+        } else {
+          // Wizard mode — send startResearchWizard if queued, otherwise send empty one
+          if (this.pendingWizardMessage) {
+            this.postMessage(this.pendingWizardMessage);
+            this.pendingWizardMessage = null;
+          } else {
+            this.postMessage({
+              type: "startResearchWizard",
+              topic: "",
+              description: "",
+              questions: [],
+              suggestedName: "",
+            });
+          }
         }
         break;
 
@@ -317,6 +394,53 @@ export class CanvasPanel {
           }
         }
         break;
+
+      case "requestResearchClarify":
+        try {
+          const result = await api.getClarifyingQuestions(msg.topic, msg.description);
+          this.postMessage({
+            type: "researchClarifyResult",
+            questions: result.questions || [],
+            suggestedName: result.suggested_name || "",
+          });
+        } catch (e) {
+          console.error("Research clarify failed:", e);
+          this.postMessage({ type: "researchClarifyResult", questions: [], suggestedName: "" });
+        }
+        break;
+
+      case "submitResearch":
+        try {
+          // Create project if we don't have one yet (wizard mode)
+          if (!this.projectId) {
+            const project = await api.createProject(msg.projectName, msg.description);
+            this.projectId = project.id;
+            this.phase = "research";
+
+            // Re-key the panel from "wizard" to the real project key
+            CanvasPanel.panels.delete("wizard");
+            CanvasPanel.panels.set(this.panelKey, this);
+
+            // Connect WebSocket now that we have a projectId
+            this.connectWebSocket(this.projectId);
+          }
+
+          // Start research
+          await api.startResearch(this.projectId, msg.query, msg.context);
+          CanvasPanel.progressTracker?.trackResearch(this.projectId, msg.projectName);
+
+          // Update panel title
+          this.panel.title = `MVB: ${msg.projectName} (Research)`;
+
+          // Load project data so the canvas can display
+          await this.loadProjectAndFlush();
+
+          this.onRefreshSidebar();
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          vscode.window.showErrorMessage(`Failed to start research: ${errMsg}`);
+        }
+        break;
     }
   }
 
@@ -325,7 +449,7 @@ export class CanvasPanel {
   }
 
   dispose(): void {
-    CanvasPanel.panels.delete(this.projectId);
+    CanvasPanel.panels.delete(this.panelKey);
     this.ws.disconnect();
     this.panel.dispose();
     for (const d of this.disposables) {

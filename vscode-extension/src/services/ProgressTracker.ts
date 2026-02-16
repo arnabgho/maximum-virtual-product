@@ -237,7 +237,7 @@ export class ProgressTracker {
 
     vscode.window.showInformationMessage(`MVB: ${message}`, ...actions).then((action) => {
       if (action === "Open Canvas") {
-        vscode.commands.executeCommand("mvp.openCanvas", projectId);
+        vscode.commands.executeCommand("mvp.openCanvas", projectId, type);
       } else if (action === "Export Plan") {
         vscode.commands.executeCommand("mvp.exportPlan", projectId);
       }

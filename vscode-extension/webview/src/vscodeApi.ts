@@ -145,7 +145,9 @@ export type ExtToWebview =
   | { type: "themeChanged"; kind: "light" | "dark" }
   | { type: "startPlanWizard"; directions: PlanDirection[] }
   | { type: "designPreferencesResult"; dimensions: DesignDimension[] }
-  | { type: "planClarifyResult"; questions: ClarifyingQuestion[] };
+  | { type: "planClarifyResult"; questions: ClarifyingQuestion[] }
+  | { type: "startResearchWizard"; topic?: string; description?: string; questions: ClarifyingQuestion[]; suggestedName: string }
+  | { type: "researchClarifyResult"; questions: ClarifyingQuestion[]; suggestedName: string };
 
 export type WebviewToExt =
   | { type: "ready" }
@@ -156,7 +158,9 @@ export type WebviewToExt =
   | { type: "openInBrowser" }
   | { type: "requestDesignPreferences"; direction: PlanDirection }
   | { type: "requestPlanClarify"; direction: PlanDirection }
-  | { type: "submitPlan"; direction: PlanDirection; designPrefs: Record<string, string>; clarifyAnswers: Record<string, string> };
+  | { type: "submitPlan"; direction: PlanDirection; designPrefs: Record<string, string>; clarifyAnswers: Record<string, string> }
+  | { type: "requestResearchClarify"; topic: string; description: string }
+  | { type: "submitResearch"; query: string; description: string; projectName: string; context: Record<string, string> };
 
 // VS Code API wrapper
 interface VsCodeApi {
