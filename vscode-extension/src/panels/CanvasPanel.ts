@@ -5,23 +5,24 @@ import { ProjectWebSocket } from "../api/mvpClient";
 import type { ExtToWebview, WebviewToExt, WSEvent } from "../types";
 
 export class CanvasPanel {
-  public static currentPanel: CanvasPanel | undefined;
-  private static readonly viewType = "mvp-canvas";
+  private static panels = new Map<string, CanvasPanel>();
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
   private readonly disposables: vscode.Disposable[] = [];
-  private projectId: string | undefined;
+  private projectId: string;
   private ws: ProjectWebSocket;
   private onRefreshSidebar: () => void;
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
+    projectId: string,
     onRefreshSidebar: () => void
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
+    this.projectId = projectId;
     this.onRefreshSidebar = onRefreshSidebar;
     this.ws = new ProjectWebSocket();
 
@@ -56,18 +57,19 @@ export class CanvasPanel {
     projectId: string,
     onRefreshSidebar: () => void
   ): CanvasPanel {
-    // If panel exists, show it
-    if (CanvasPanel.currentPanel) {
-      CanvasPanel.currentPanel.panel.reveal(vscode.ViewColumn.One);
-      CanvasPanel.currentPanel.loadProject(projectId);
-      return CanvasPanel.currentPanel;
+    // If panel for this project exists, reveal it
+    const existing = CanvasPanel.panels.get(projectId);
+    if (existing) {
+      existing.panel.reveal();
+      return existing;
     }
 
-    // Create new panel
+    // Create new panel — use Beside if there's already an open panel, otherwise One
+    const viewColumn = CanvasPanel.panels.size > 0 ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
     const panel = vscode.window.createWebviewPanel(
-      CanvasPanel.viewType,
+      `mvp-canvas-${projectId}`,
       "MVB Canvas",
-      vscode.ViewColumn.One,
+      viewColumn,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -75,9 +77,16 @@ export class CanvasPanel {
       }
     );
 
-    CanvasPanel.currentPanel = new CanvasPanel(panel, extensionUri, onRefreshSidebar);
-    CanvasPanel.currentPanel.loadProject(projectId);
-    return CanvasPanel.currentPanel;
+    const canvasPanel = new CanvasPanel(panel, extensionUri, projectId, onRefreshSidebar);
+    CanvasPanel.panels.set(projectId, canvasPanel);
+    canvasPanel.loadProject(projectId);
+    return canvasPanel;
+  }
+
+  static disposeAll(): void {
+    for (const panel of CanvasPanel.panels.values()) {
+      panel.dispose();
+    }
   }
 
   async loadProject(projectId: string): Promise<void> {
@@ -195,7 +204,7 @@ export class CanvasPanel {
   }
 
   dispose(): void {
-    CanvasPanel.currentPanel = undefined;
+    CanvasPanel.panels.delete(this.projectId);
     this.ws.disconnect();
     this.panel.dispose();
     for (const d of this.disposables) {

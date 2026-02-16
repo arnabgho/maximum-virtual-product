@@ -1,13 +1,21 @@
 import * as vscode from "vscode";
 import type { Project, Artifact, Feedback } from "../types";
+import type { TrackedOperation } from "../services/ProgressTracker";
 
 export class ProjectItem extends vscode.TreeItem {
-  constructor(public readonly project: Project) {
+  constructor(public readonly project: Project, activeOp?: TrackedOperation) {
     super(project.title, vscode.TreeItemCollapsibleState.Collapsed);
-    this.description = project.phase;
     this.contextValue = "project";
-    this.iconPath = new vscode.ThemeIcon("folder");
-    this.tooltip = `${project.title}\nPhase: ${project.phase}\nID: ${project.id}`;
+
+    if (activeOp) {
+      this.iconPath = new vscode.ThemeIcon("loading~spin");
+      this.description = activeOp.lastMessage;
+      this.tooltip = `${project.title}\n${activeOp.lastMessage}\nID: ${project.id}`;
+    } else {
+      this.description = project.phase;
+      this.iconPath = new vscode.ThemeIcon("folder");
+      this.tooltip = `${project.title}\nPhase: ${project.phase}\nID: ${project.id}`;
+    }
   }
 }
 

@@ -6,6 +6,7 @@ import { CanvasPanel } from "./panels/CanvasPanel";
 import * as api from "./api/mvpClient";
 import { initAuth, signIn, signOut, isSignedIn, onDidSignIn, onDidSignOut } from "./auth";
 import type { PlanDirection } from "./types";
+import { ProgressTracker } from "./services/ProgressTracker";
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize auth with SecretStorage
@@ -21,6 +22,12 @@ export function activate(context: vscode.ExtensionContext) {
   // Refresh tree when auth state changes
   context.subscriptions.push(onDidSignIn(() => treeProvider.refresh()));
   context.subscriptions.push(onDidSignOut(() => treeProvider.refresh()));
+
+  // Progress tracker for long-running operations
+  const progressTracker = new ProgressTracker();
+  context.subscriptions.push(progressTracker.onDidChange(() => treeProvider.refresh()));
+  context.subscriptions.push({ dispose: () => progressTracker.dispose() });
+  treeProvider.setProgressTracker(progressTracker);
 
   // Helper to resolve projectId from command arguments or prompt user
   async function resolveProjectId(projectId?: string): Promise<string | undefined> {
@@ -50,6 +57,40 @@ export function activate(context: vscode.ExtensionContext) {
       return undefined;
     }
   }
+
+  // --- Environment toggle status bar ---
+  const envStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  envStatusBar.command = "mvp.switchEnvironment";
+  function updateEnvStatusBar() {
+    const backendUrl = vscode.workspace.getConfiguration("mvp").get<string>("backendUrl", "");
+    const isLocal = backendUrl.includes("localhost") || backendUrl.includes("127.0.0.1");
+    envStatusBar.text = isLocal ? "$(server) MVB: Local" : "$(server) MVB: Production";
+    envStatusBar.tooltip = `Backend: ${backendUrl}\nClick to switch`;
+    envStatusBar.show();
+  }
+  updateEnvStatusBar();
+  context.subscriptions.push(envStatusBar);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mvp.switchEnvironment", async () => {
+      const config = vscode.workspace.getConfiguration("mvp");
+      const currentBackend = config.get<string>("backendUrl", "");
+      const isLocal = currentBackend.includes("localhost") || currentBackend.includes("127.0.0.1");
+
+      if (isLocal) {
+        await config.update("backendUrl", "https://selfless-determination-production-af9e.up.railway.app", vscode.ConfigurationTarget.Global);
+        await config.update("frontendUrl", "https://steadfast-essence-production-f170.up.railway.app", vscode.ConfigurationTarget.Global);
+      } else {
+        await config.update("backendUrl", "http://localhost:8000", vscode.ConfigurationTarget.Global);
+        await config.update("frontendUrl", "http://localhost:5173", vscode.ConfigurationTarget.Global);
+      }
+
+      updateEnvStatusBar();
+      treeProvider.refresh();
+      const env = isLocal ? "Production" : "Local";
+      vscode.window.showInformationMessage(`MVB: Switched to ${env}`);
+    })
+  );
 
   // --- mvp.signIn ---
   context.subscriptions.push(
@@ -142,16 +183,23 @@ export function activate(context: vscode.ExtensionContext) {
         // Proceed without clarifying questions
       }
 
-      // Start research and open canvas
+      // Start research with progress tracking
       try {
+        // Fetch project title for progress display
+        let projectTitle = "Research";
+        try {
+          const project = await api.getProject(id);
+          projectTitle = project.title;
+        } catch { /* use default */ }
+
         await api.startResearch(id, query, researchContext);
+        progressTracker.trackResearch(id, projectTitle);
         // Open canvas to show streaming progress
         CanvasPanel.createOrShow(
           context.extensionUri,
           id,
           () => treeProvider.refreshProject(id)
         );
-        vscode.window.showInformationMessage("Research started! Watch the canvas for live results.");
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         vscode.window.showErrorMessage(`Failed to start research: ${msg}`);
@@ -201,13 +249,20 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       try {
+        // Fetch project title for progress display
+        let projectTitle = "Plan";
+        try {
+          const project = await api.getProject(id);
+          projectTitle = project.title;
+        } catch { /* use default */ }
+
         await api.startPlan(id, description);
+        progressTracker.trackPlan(id, projectTitle);
         CanvasPanel.createOrShow(
           context.extensionUri,
           id,
           () => treeProvider.refreshProject(id)
         );
-        vscode.window.showInformationMessage("Plan generation started!");
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         vscode.window.showErrorMessage(`Failed to generate plan: ${msg}`);
@@ -282,7 +337,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  if (CanvasPanel.currentPanel) {
-    CanvasPanel.currentPanel.dispose();
-  }
+  CanvasPanel.disposeAll();
 }

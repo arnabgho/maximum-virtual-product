@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as api from "../api/mvpClient";
 import type { Project, Artifact, Feedback } from "../types";
+import type { ProgressTracker, TrackedOperation } from "../services/ProgressTracker";
 import {
   ProjectItem,
   PhaseItem,
@@ -28,6 +29,11 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private artifactCache = new Map<string, Artifact[]>();
   private feedbackCache = new Map<string, Feedback[]>();
   private loadingProjects = new Set<string>();
+  private progressTracker: ProgressTracker | undefined;
+
+  setProgressTracker(tracker: ProgressTracker): void {
+    this.progressTracker = tracker;
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -75,7 +81,10 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       return [new LoadingItem("No projects — use + to create one")];
     }
 
-    return this.projects.map((p) => new ProjectItem(p));
+    return this.projects.map((p) => {
+      const activeOp = this.progressTracker?.getOperation(p.id);
+      return new ProjectItem(p, activeOp);
+    });
   }
 
   private async getProjectChildren(project: Project): Promise<TreeNode[]> {
