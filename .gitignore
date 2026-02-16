@@ -11,6 +11,9 @@ build/
 out/
 *.egg-info/
 
+# Generated plans
+generated_plans/
+
 # Environment
 .env
 .env.local
