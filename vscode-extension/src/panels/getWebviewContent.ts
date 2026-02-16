@@ -36,7 +36,7 @@ export function getWebviewContent(
     );
 
     // Add nonce to script tags
-    html = html.replace(/<script /g, `<script nonce="${nonce}" `);
+    html = html.replace(/<script(?=[ >])/g, `<script nonce="${nonce}" `);
 
     return html;
   }
