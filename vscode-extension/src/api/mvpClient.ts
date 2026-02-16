@@ -9,6 +9,7 @@ import type {
   Feedback,
   ClarifyingQuestion,
   PlanDirection,
+  DesignDimension,
   WSEvent,
 } from "../types";
 
@@ -130,6 +131,26 @@ export async function getPlanDirections(projectId: string): Promise<PlanDirectio
     `/api/projects/${projectId}/plan-directions`
   );
   return data.directions || [];
+}
+
+export async function getDesignPreferences(
+  projectId: string,
+  direction: PlanDirection
+): Promise<{ dimensions: DesignDimension[] }> {
+  return request(`/api/projects/${projectId}/design-preferences`, {
+    method: "POST",
+    body: JSON.stringify({ direction }),
+  });
+}
+
+export async function getPlanClarify(
+  projectId: string,
+  direction: PlanDirection
+): Promise<{ questions: ClarifyingQuestion[] }> {
+  return request(`/api/projects/${projectId}/plan-clarify`, {
+    method: "POST",
+    body: JSON.stringify({ direction }),
+  });
 }
 
 export async function startPlan(

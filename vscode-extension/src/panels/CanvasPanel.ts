@@ -2,10 +2,16 @@ import * as vscode from "vscode";
 import { getWebviewContent } from "./getWebviewContent";
 import * as api from "../api/mvpClient";
 import { ProjectWebSocket } from "../api/mvpClient";
-import type { ExtToWebview, WebviewToExt, WSEvent } from "../types";
+import type { ExtToWebview, WebviewToExt, PlanDirection, WSEvent } from "../types";
+import type { ProgressTracker } from "../services/ProgressTracker";
 
 export class CanvasPanel {
   private static panels = new Map<string, CanvasPanel>();
+  private static progressTracker: ProgressTracker | undefined;
+
+  static setProgressTracker(tracker: ProgressTracker): void {
+    CanvasPanel.progressTracker = tracker;
+  }
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
@@ -15,6 +21,7 @@ export class CanvasPanel {
   private onRefreshSidebar: () => void;
   private webviewReady = false;
   private pendingEvents: WSEvent[] = [];
+  private pendingWizardMessage: ExtToWebview | null = null;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -95,6 +102,15 @@ export class CanvasPanel {
     }
   }
 
+  startPlanWizard(directions: PlanDirection[]): void {
+    const msg: ExtToWebview = { type: "startPlanWizard", directions };
+    if (this.webviewReady) {
+      this.postMessage(msg);
+    } else {
+      this.pendingWizardMessage = msg;
+    }
+  }
+
   private connectWebSocket(projectId: string): void {
     this.ws.disconnect();
     this.ws.connect(projectId);
@@ -147,6 +163,12 @@ export class CanvasPanel {
         this.forwardWSEvent(event);
       }
       this.pendingEvents = [];
+
+      // Flush pending wizard message
+      if (this.pendingWizardMessage) {
+        this.postMessage(this.pendingWizardMessage);
+        this.pendingWizardMessage = null;
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       vscode.window.showErrorMessage(`Failed to load project: ${msg}`);
@@ -234,6 +256,65 @@ export class CanvasPanel {
       case "openInBrowser":
         if (this.projectId) {
           vscode.commands.executeCommand("mvp.openInBrowser", this.projectId);
+        }
+        break;
+
+      case "requestDesignPreferences":
+        if (this.projectId) {
+          try {
+            const result = await api.getDesignPreferences(this.projectId, msg.direction);
+            this.postMessage({ type: "designPreferencesResult", dimensions: result.dimensions || [] });
+          } catch (e) {
+            console.error("Design preferences failed:", e);
+            this.postMessage({ type: "designPreferencesResult", dimensions: [] });
+          }
+        }
+        break;
+
+      case "requestPlanClarify":
+        if (this.projectId) {
+          try {
+            const result = await api.getPlanClarify(this.projectId, msg.direction);
+            this.postMessage({ type: "planClarifyResult", questions: result.questions || [] });
+          } catch (e) {
+            console.error("Plan clarify failed:", e);
+            this.postMessage({ type: "planClarifyResult", questions: [] });
+          }
+        }
+        break;
+
+      case "submitPlan":
+        if (this.projectId) {
+          try {
+            // Build description from direction
+            const dir = msg.direction;
+            const description = dir.key_focus
+              ? `${dir.title}: ${dir.description}\n\nKey focus: ${dir.key_focus}`
+              : `${dir.title}: ${dir.description}`;
+
+            // Merge design preferences + clarifying answers as context
+            const context = { ...msg.designPrefs, ...msg.clarifyAnswers };
+
+            // Fetch research artifact IDs
+            let refIds: string[] = [];
+            try {
+              const artifacts = await api.getArtifacts(this.projectId, "research");
+              refIds = artifacts.map((a) => a.id);
+            } catch { /* proceed without refs */ }
+
+            // Fetch project title for progress
+            let projectTitle = "Plan";
+            try {
+              const project = await api.getProject(this.projectId);
+              projectTitle = project.title;
+            } catch { /* use default */ }
+
+            await api.startPlan(this.projectId, description, refIds, context);
+            CanvasPanel.progressTracker?.trackPlan(this.projectId, projectTitle);
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : String(e);
+            vscode.window.showErrorMessage(`Failed to generate plan: ${errMsg}`);
+          }
         }
         break;
     }

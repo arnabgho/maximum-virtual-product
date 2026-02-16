@@ -75,6 +75,22 @@ export interface PlanDirection {
   key_focus: string;
 }
 
+export interface DesignOption {
+  option_id: string;
+  label: string;
+  description: string;
+  image_prompt: string;
+  image_url: string | null;
+}
+
+export interface DesignDimension {
+  dimension_id: string;
+  dimension_name: string;
+  description: string;
+  option_a: DesignOption;
+  option_b: DesignOption;
+}
+
 export interface SpatialBounds {
   x: number;
   y: number;
@@ -145,7 +161,10 @@ export type ExtToWebview =
   | { type: "wsEvent"; event: WSEvent }
   | { type: "artifactsUpdated"; artifacts: Artifact[] }
   | { type: "feedbackUpdated"; feedback: Feedback[] }
-  | { type: "themeChanged"; kind: "light" | "dark" };
+  | { type: "themeChanged"; kind: "light" | "dark" }
+  | { type: "startPlanWizard"; directions: PlanDirection[] }
+  | { type: "designPreferencesResult"; dimensions: DesignDimension[] }
+  | { type: "planClarifyResult"; questions: ClarifyingQuestion[] };
 
 export type WebviewToExt =
   | { type: "ready" }
@@ -153,4 +172,7 @@ export type WebviewToExt =
   | { type: "regenerate"; artifactId: string }
   | { type: "batchRegenerate" }
   | { type: "exportPlan" }
-  | { type: "openInBrowser" };
+  | { type: "openInBrowser" }
+  | { type: "requestDesignPreferences"; direction: PlanDirection }
+  | { type: "requestPlanClarify"; direction: PlanDirection }
+  | { type: "submitPlan"; direction: PlanDirection; designPrefs: Record<string, string>; clarifyAnswers: Record<string, string> };

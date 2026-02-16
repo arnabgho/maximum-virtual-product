@@ -28,6 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(progressTracker.onDidChange(() => treeProvider.refresh()));
   context.subscriptions.push({ dispose: () => progressTracker.dispose() });
   treeProvider.setProgressTracker(progressTracker);
+  CanvasPanel.setProgressTracker(progressTracker);
 
   // Helper to resolve projectId from command arguments or prompt user
   async function resolveProjectId(projectId?: string): Promise<string | undefined> {
@@ -179,7 +180,7 @@ export function activate(context: vscode.ExtensionContext) {
       const id = await resolveProjectId(projectId);
       if (!id) return;
 
-      // Get plan directions
+      // Get plan directions with progress notification
       let directions: PlanDirection[] = [];
       try {
         directions = await vscode.window.withProgress(
@@ -187,52 +188,16 @@ export function activate(context: vscode.ExtensionContext) {
           () => api.getPlanDirections(id)
         );
       } catch {
-        // Continue without directions
+        // Continue with empty directions — wizard will show custom input
       }
 
-      let description = "";
-      if (directions.length > 0) {
-        const picked = await vscode.window.showQuickPick(
-          directions.map((d) => ({
-            label: d.title,
-            description: d.key_focus,
-            detail: d.description,
-          })),
-          { placeHolder: "Choose a strategic direction" }
-        );
-        if (picked) {
-          description = `${picked.label}: ${picked.detail}`;
-        }
-      }
-
-      if (!description) {
-        const input = await vscode.window.showInputBox({
-          prompt: "Plan description",
-          placeHolder: "Describe what to build...",
-        });
-        if (!input) return;
-        description = input;
-      }
-
-      try {
-        // Fetch project title for progress display
-        let projectTitle = "Plan";
-        try {
-          const project = await api.getProject(id);
-          projectTitle = project.title;
-        } catch { /* use default */ }
-
-        await api.startPlan(id, description);
-        progressTracker.trackPlan(id, projectTitle);
-        CanvasPanel.createOrShow(
-          context.extensionUri,
-          id,
-          () => treeProvider.refreshProject(id)
-        );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        vscode.window.showErrorMessage(`Failed to generate plan: ${msg}`);
-      }
+      // Open canvas panel and hand off to the webview wizard
+      const panel = CanvasPanel.createOrShow(
+        context.extensionUri,
+        id,
+        () => treeProvider.refreshProject(id)
+      );
+      panel.startPlanWizard(directions);
     })
   );
 

@@ -8,6 +8,9 @@ import type {
   AgentStatus,
   WSEvent,
   PlanStage,
+  PlanDirection,
+  DesignDimension,
+  ClarifyingQuestion,
 } from "../vscodeApi";
 import { sendToExtension } from "../vscodeApi";
 
@@ -50,6 +53,22 @@ interface ExtensionStore {
   setFeedback: (feedback: Feedback[]) => void;
   addFeedback: (fb: Feedback) => void;
 
+  // Plan wizard
+  showPlanWizard: boolean;
+  planDirections: PlanDirection[];
+  designDimensions: DesignDimension[];
+  planClarifyingQuestions: ClarifyingQuestion[];
+  wizardLoading: boolean;
+  setShowPlanWizard: (v: boolean) => void;
+  setPlanDirections: (dirs: PlanDirection[]) => void;
+  setDesignDimensions: (dims: DesignDimension[]) => void;
+  updateDesignOptionImage: (optionId: string, imageUrl: string) => void;
+  setPlanClarifyingQuestions: (questions: ClarifyingQuestion[]) => void;
+  setWizardLoading: (v: boolean) => void;
+  requestDesignPreferences: (direction: PlanDirection) => void;
+  requestPlanClarify: (direction: PlanDirection) => void;
+  submitPlan: (direction: PlanDirection, designPrefs: Record<string, string>, clarifyAnswers: Record<string, string>) => void;
+
   // Computed helpers
   phaseArtifacts: () => Artifact[];
   phaseGroups: () => Group[];
@@ -75,6 +94,11 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   batchRegenerateProgress: null,
   planStages: [],
   imageGenerationProgress: null,
+  showPlanWizard: false,
+  planDirections: [],
+  designDimensions: [],
+  planClarifyingQuestions: [],
+  wizardLoading: false,
 
   setProject: (project, artifacts, connections, groups, feedback) => {
     set((s) => ({
@@ -249,6 +273,14 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
         setTimeout(() => set({ batchRegenerateProgress: null }), 3000);
         break;
 
+      case "design_image_ready": {
+        const { option_id, image_url } = data as { option_id: string; image_url: string };
+        if (option_id && image_url) {
+          get().updateDesignOptionImage(option_id, image_url);
+        }
+        break;
+      }
+
       case "error": {
         console.error("MVP error:", data.message);
         break;
@@ -295,6 +327,38 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   setFeedback: (feedback) => set({ feedback }),
 
   addFeedback: (fb) => set((s) => ({ feedback: [...s.feedback, fb] })),
+
+  setShowPlanWizard: (v) => set({ showPlanWizard: v }),
+
+  setPlanDirections: (dirs) => set({ planDirections: dirs }),
+
+  setDesignDimensions: (dims) => set({ designDimensions: dims, wizardLoading: false }),
+
+  updateDesignOptionImage: (optionId, imageUrl) =>
+    set((s) => ({
+      designDimensions: s.designDimensions.map((dim) => ({
+        ...dim,
+        option_a: dim.option_a.option_id === optionId ? { ...dim.option_a, image_url: imageUrl } : dim.option_a,
+        option_b: dim.option_b.option_id === optionId ? { ...dim.option_b, image_url: imageUrl } : dim.option_b,
+      })),
+    })),
+
+  setPlanClarifyingQuestions: (questions) => set({ planClarifyingQuestions: questions, wizardLoading: false }),
+
+  setWizardLoading: (v) => set({ wizardLoading: v }),
+
+  requestDesignPreferences: (direction) => {
+    sendToExtension({ type: "requestDesignPreferences", direction });
+  },
+
+  requestPlanClarify: (direction) => {
+    sendToExtension({ type: "requestPlanClarify", direction });
+  },
+
+  submitPlan: (direction, designPrefs, clarifyAnswers) => {
+    set({ isPlanning: true, showPlanWizard: false });
+    sendToExtension({ type: "submitPlan", direction, designPrefs, clarifyAnswers });
+  },
 
   phaseArtifacts: () => {
     const { project, artifacts } = get();

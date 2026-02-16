@@ -5,6 +5,7 @@ import type { ExtToWebview } from "./vscodeApi";
 import { ProjectCanvas } from "./components/canvas/ProjectCanvas";
 import { ReviewMode } from "./components/review/ReviewMode";
 import { ProgressView } from "./components/progress/ProgressView";
+import { PlanWizardModal } from "./components/wizard/PlanWizardModal";
 import { AnimatePresence } from "framer-motion";
 
 export function App() {
@@ -12,6 +13,7 @@ export function App() {
   const isResearching = useExtensionStore((s) => s.isResearching);
   const isPlanning = useExtensionStore((s) => s.isPlanning);
   const reviewMode = useExtensionStore((s) => s.reviewMode);
+  const showPlanWizard = useExtensionStore((s) => s.showPlanWizard);
   const setProject = useExtensionStore((s) => s.setProject);
   const handleWSEvent = useExtensionStore((s) => s.handleWSEvent);
   const setFeedback = useExtensionStore((s) => s.setFeedback);
@@ -31,6 +33,16 @@ export function App() {
           break;
         case "themeChanged":
           document.body.className = msg.kind === "light" ? "vscode-light" : "vscode-dark";
+          break;
+        case "startPlanWizard":
+          useExtensionStore.getState().setPlanDirections(msg.directions);
+          useExtensionStore.getState().setShowPlanWizard(true);
+          break;
+        case "designPreferencesResult":
+          useExtensionStore.getState().setDesignDimensions(msg.dimensions);
+          break;
+        case "planClarifyResult":
+          useExtensionStore.getState().setPlanClarifyingQuestions(msg.questions);
           break;
       }
     });
@@ -60,6 +72,11 @@ export function App() {
 
       {/* Progress overlay when researching or planning */}
       {(isResearching || isPlanning) && <ProgressView />}
+
+      {/* Plan wizard overlay */}
+      <AnimatePresence>
+        {showPlanWizard && <PlanWizardModal />}
+      </AnimatePresence>
 
       {/* Review mode overlay */}
       <AnimatePresence>

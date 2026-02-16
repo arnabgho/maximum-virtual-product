@@ -87,3 +87,11 @@ body {
 .badge-cyan { background: rgba(0, 229, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.2); color: var(--accent-cyan); }
 .badge-green { background: rgba(0, 229, 160, 0.1); border: 1px solid rgba(0, 229, 160, 0.2); color: var(--accent-green); }
 .badge-amber { background: rgba(245, 166, 35, 0.1); border: 1px solid rgba(245, 166, 35, 0.2); color: var(--accent-amber); }
+
+/* Card component */
+.hud-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  transition: all 0.2s;
+}
+.hud-card:hover { border-color: var(--border-bright); }

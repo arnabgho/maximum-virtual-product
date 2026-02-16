@@ -14,10 +14,12 @@ export interface TrackedOperation {
   connectionCount: number;
   lastMessage: string;
   startedAt: number;
+  planArtifacts: { title: string; type: string }[];
+  imageProgress: { total: number; completed: number } | null;
 }
 
 const SAFETY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-const DEBOUNCE_MS = 1000;
+const DEBOUNCE_MS = 300;
 
 export class ProgressTracker {
   private operations = new Map<string, TrackedOperation>();
@@ -60,6 +62,8 @@ export class ProgressTracker {
       connectionCount: 0,
       lastMessage: type === "research" ? "Starting research..." : "Generating plan...",
       startedAt: Date.now(),
+      planArtifacts: [],
+      imageProgress: null,
     };
     this.operations.set(projectId, op);
 
@@ -129,13 +133,22 @@ export class ProgressTracker {
         op.lastMessage = `Agent ${op.agentComplete + 1}/${op.agentTotal || "?"}: ${(data.text as string)?.slice(0, 80) || "Thinking"}...`;
         break;
 
-      case "artifact_created":
-      case "plan_artifact_created": {
+      case "artifact_created": {
         op.artifactCount++;
         const title = ((data.artifact as Record<string, unknown>)?.title as string) || "";
         op.lastMessage = title
           ? `Found: ${title} (${op.artifactCount} total)`
           : `${op.artifactCount} artifact${op.artifactCount > 1 ? "s" : ""} created`;
+        break;
+      }
+
+      case "plan_artifact_created": {
+        op.artifactCount++;
+        const artifact = data.artifact as Record<string, unknown> | undefined;
+        const artTitle = (artifact?.title as string) || "";
+        const artType = (artifact?.type as string) || "component";
+        op.planArtifacts.push({ title: artTitle, type: artType });
+        op.lastMessage = this.buildPlanProgressMessage(op);
         break;
       }
 
@@ -159,16 +172,37 @@ export class ProgressTracker {
         op.lastMessage = "Strategic directions ready";
         break;
 
-      case "images_generating":
-        op.lastMessage = "Generating images...";
+      case "images_generating": {
+        const total = (data.total as number) || 0;
+        op.imageProgress = { total, completed: 0 };
+        if (op.type === "plan") {
+          op.lastMessage = this.buildPlanProgressMessage(op);
+        } else {
+          op.lastMessage = "Generating images...";
+        }
         break;
+      }
 
       case "image_generated":
-        op.lastMessage = `Image generated for ${(data.artifact_id as string)?.slice(0, 12) || "artifact"}`;
+        if (op.imageProgress) {
+          op.imageProgress.completed++;
+        }
+        if (op.type === "plan") {
+          op.lastMessage = this.buildPlanProgressMessage(op);
+        } else {
+          op.lastMessage = `Image generated for ${(data.artifact_id as string)?.slice(0, 12) || "artifact"}`;
+        }
         break;
 
       case "images_complete":
-        op.lastMessage = "All images generated";
+        if (op.type === "plan") {
+          if (op.imageProgress) {
+            op.imageProgress.completed = op.imageProgress.total;
+          }
+          op.lastMessage = this.buildPlanProgressMessage(op);
+        } else {
+          op.lastMessage = "All images generated";
+        }
         break;
 
       case "research_complete":
@@ -242,6 +276,35 @@ export class ProgressTracker {
     this.debounceTimer = setTimeout(() => {
       this._onDidChange.fire();
     }, DEBOUNCE_MS);
+  }
+
+  private buildPlanProgressMessage(op: TrackedOperation): string {
+    const lines: string[] = [];
+    lines.push(`Blueprint Components: ${op.planArtifacts.length} created`);
+
+    const display = op.planArtifacts.length > 8
+      ? op.planArtifacts.slice(-8) : op.planArtifacts;
+    if (op.planArtifacts.length > 8) {
+      lines.push(`  ... ${op.planArtifacts.length - 8} earlier`);
+    }
+
+    for (const art of display) {
+      const label = art.type === "plan_component" ? "component"
+        : art.type === "ui_screen" ? "screen"
+        : art.type === "mermaid" ? "diagram" : art.type;
+      lines.push(`  \u2713 ${art.title}  (${label})`);
+    }
+
+    if (op.connectionCount > 0) {
+      lines.push(`Connections: ${op.connectionCount} linked`);
+    }
+    if (op.imageProgress) {
+      const { completed, total } = op.imageProgress;
+      lines.push(completed >= total
+        ? `Images: ${total} complete`
+        : `Generating images: ${completed}/${total}`);
+    }
+    return lines.join("\n");
   }
 
   dispose(): void {
