@@ -161,11 +161,12 @@ export function activate(context: vscode.ExtensionContext) {
 
         await api.startResearch(id, query, researchContext);
         progressTracker.trackResearch(id, projectTitle);
-        // Open canvas to show streaming progress
+        // Open canvas to show streaming research progress
         CanvasPanel.createOrShow(
           context.extensionUri,
           id,
-          () => treeProvider.refreshProject(id)
+          () => treeProvider.refreshProject(id),
+          "research"
         );
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -191,11 +192,12 @@ export function activate(context: vscode.ExtensionContext) {
         // Continue with empty directions — wizard will show custom input
       }
 
-      // Open canvas panel and hand off to the webview wizard
+      // Open canvas panel for plan phase and hand off to the webview wizard
       const panel = CanvasPanel.createOrShow(
         context.extensionUri,
         id,
-        () => treeProvider.refreshProject(id)
+        () => treeProvider.refreshProject(id),
+        "plan"
       );
       panel.startPlanWizard(directions);
     })
@@ -203,14 +205,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   // --- mvp.openCanvas ---
   context.subscriptions.push(
-    vscode.commands.registerCommand("mvp.openCanvas", async (projectId?: string) => {
+    vscode.commands.registerCommand("mvp.openCanvas", async (projectId?: string, phase?: string) => {
       const id = await resolveProjectId(projectId);
       if (!id) return;
 
       CanvasPanel.createOrShow(
         context.extensionUri,
         id,
-        () => treeProvider.refreshProject(id)
+        () => treeProvider.refreshProject(id),
+        phase as "research" | "plan" | undefined
       );
     })
   );

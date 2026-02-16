@@ -138,7 +138,7 @@ export interface PlanStage {
 
 // Message protocol
 export type ExtToWebview =
-  | { type: "loadProject"; project: Project; artifacts: Artifact[]; connections: ArtifactConnection[]; groups: Group[]; feedback: Feedback[] }
+  | { type: "loadProject"; project: Project; artifacts: Artifact[]; connections: ArtifactConnection[]; groups: Group[]; feedback: Feedback[]; displayPhase?: Phase }
   | { type: "wsEvent"; event: WSEvent }
   | { type: "artifactsUpdated"; artifacts: Artifact[] }
   | { type: "feedbackUpdated"; feedback: Feedback[] }

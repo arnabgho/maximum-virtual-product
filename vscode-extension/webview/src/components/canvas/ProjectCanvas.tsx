@@ -35,13 +35,16 @@ function ProjectCanvasInner() {
   const setSelectedArtifact = useExtensionStore((s) => s.setSelectedArtifact);
   const updateArtifactPosition = useExtensionStore((s) => s.updateArtifactPosition);
 
+  const displayPhase = useExtensionStore((s) => s.displayPhase);
+  const filterPhase = displayPhase ?? project?.phase;
+
   const phaseArtifacts = useMemo(
-    () => artifacts.filter((a) => a.phase === project?.phase),
-    [artifacts, project?.phase]
+    () => artifacts.filter((a) => a.phase === filterPhase),
+    [artifacts, filterPhase]
   );
   const phaseGroups = useMemo(
-    () => groups.filter((g) => g.phase === project?.phase),
-    [groups, project?.phase]
+    () => groups.filter((g) => g.phase === filterPhase),
+    [groups, filterPhase]
   );
   const phaseConnections = useMemo(
     () =>

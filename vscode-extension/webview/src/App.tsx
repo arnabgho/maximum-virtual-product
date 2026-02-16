@@ -23,7 +23,7 @@ export function App() {
     const cleanup = onExtensionMessage((msg: ExtToWebview) => {
       switch (msg.type) {
         case "loadProject":
-          setProject(msg.project, msg.artifacts, msg.connections, msg.groups, msg.feedback);
+          setProject(msg.project, msg.artifacts, msg.connections, msg.groups, msg.feedback, msg.displayPhase);
           break;
         case "wsEvent":
           handleWSEvent(msg.event);

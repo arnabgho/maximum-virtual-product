@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  Phase,
   Project,
   Artifact,
   ArtifactConnection,
@@ -17,6 +18,7 @@ import { sendToExtension } from "../vscodeApi";
 interface ExtensionStore {
   // State
   project: Project | null;
+  displayPhase: Phase | null;
   artifacts: Artifact[];
   connections: ArtifactConnection[];
   groups: Group[];
@@ -43,7 +45,8 @@ interface ExtensionStore {
     artifacts: Artifact[],
     connections: ArtifactConnection[],
     groups: Group[],
-    feedback: Feedback[]
+    feedback: Feedback[],
+    displayPhase?: Phase
   ) => void;
   handleWSEvent: (event: WSEvent) => void;
   setSelectedArtifact: (id: string | null) => void;
@@ -80,6 +83,7 @@ interface ExtensionStore {
 
 export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   project: null,
+  displayPhase: null,
   artifacts: [],
   connections: [],
   groups: [],
@@ -100,9 +104,10 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   planClarifyingQuestions: [],
   wizardLoading: false,
 
-  setProject: (project, artifacts, connections, groups, feedback) => {
+  setProject: (project, artifacts, connections, groups, feedback, displayPhase) => {
     set((s) => ({
       project,
+      displayPhase: displayPhase ?? null,
       artifacts,
       connections,
       groups,
@@ -361,15 +366,17 @@ export const useExtensionStore = create<ExtensionStore>((set, get) => ({
   },
 
   phaseArtifacts: () => {
-    const { project, artifacts } = get();
+    const { project, displayPhase, artifacts } = get();
     if (!project) return [];
-    return artifacts.filter((a) => a.phase === project.phase);
+    const phase = displayPhase ?? project.phase;
+    return artifacts.filter((a) => a.phase === phase);
   },
 
   phaseGroups: () => {
-    const { project, groups } = get();
+    const { project, displayPhase, groups } = get();
     if (!project) return [];
-    return groups.filter((g) => g.phase === project.phase);
+    const phase = displayPhase ?? project.phase;
+    return groups.filter((g) => g.phase === phase);
   },
 
   giveFeedback: (artifactId, comment, bounds) => {
